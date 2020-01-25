@@ -1,5 +1,4 @@
-﻿using GPG_Csharp;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,8 +14,11 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Intel.RealSense;
+using HelixToolkit.Wpf;
+using System.Windows.Media.Media3D;
 
-namespace Intel.RealSense
+namespace GPG_Csharp
 {
     /// <summary>
     /// Interaction logic for Window.xaml
@@ -73,15 +75,6 @@ namespace Intel.RealSense
                 cfg.EnableStream(Stream.Color, Format.Rgb8);
 
                 var pp = pipeline.Start(cfg);
-                /*
-                using (var p = pp.GetStream(Stream.Color).As<VideoStreamProfile>())
-                {
-                    imgColor.Source = new WriteableBitmap(p.Width, p.Height, 96d, 96d, PixelFormats.Rgb24, null);
-                    imgDepth.Source = new WriteableBitmap(p.Width, p.Height, 96d, 96d, PixelFormats.Rgb24, null);
-                }
-                var updateColor = UpdateImage(imgColor);
-                var updateDepth = UpdateImage(imgDepth);
-                */
 
                 // Get the recommended processing blocks for the depth sensor
                 var sensor = pp.Device.QuerySensors<Sensor>().First(s => s.Is(Extension.DepthSensor));
@@ -216,23 +209,63 @@ namespace Intel.RealSense
             color = UpdateImage(imgColor);
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private void CaptureFrame(object sender, RoutedEventArgs e)
         {
             tokenSource.Cancel();
             var frames = pipeline.WaitForFrames();
             var df = frames.DepthFrame;
-            var filteredDepth = df.As<Frame>();
+            //var filteredDepth = df.As<Frame>();
+
             //filteredDepth = decFilter.Process(filteredDepth);
             //filteredDepth = spatialFilter.Process(filteredDepth);
             //filteredDepth = temporalFilter.Process(filteredDepth);
-            filteredDepth = holeFillingFilter.Process(filteredDepth);
+            //filteredDepth = holeFillingFilter.Process(filteredDepth);
+
             var cf = frames.ColorFrame;
             pc.MapTexture(cf);
-            var filteredPoints = pc.Process(filteredDepth).As<Points>();
-            filteredPoints.ExportToPLY("filtered.ply", colorizer.Process<VideoFrame>(filteredDepth));
+
+            //var filteredPoints = pc.Process(filteredDepth).As<Points>();
+            //filteredPoints.ExportToPLY("filtered.ply", colorizer.Process<VideoFrame>(filteredDepth));
+
             var points = pc.Process(df).As<Points>();
+
+            var vertices = new Intel.RealSense.Math.Vertex[points.Count];
+            points.CopyVertices(vertices);
+
+            //var xs = vertices.Select(x => x.x);
+            //var xmin = xs.Min(); var xmax = xs.Max();
+            //var ys = vertices.Select(x => x.y);
+            //var ymin = ys.Min(); var ymax = ys.Max();
+            //var zs = vertices.Select(x => x.z);
+            //var zmin = zs.Min(); var zmax = zs.Max();
+            //Console.WriteLine("X: " + xmin + " - " + xmax + ", Y: " + ymin + " - " + ymax + ", Z: " + zmin + " - " + zmax);
+
             points.ExportToPLY("raw.ply", colorizer.Process<VideoFrame>(df));
-            var previewWindow = new _3DPreviewWindow();
+
+            //var newVertices = new List<Math.Vertex>(); //[points.Count]
+            //var pcl = new PointCloudOfXYZ();
+            var helixPoints = new PointsVisual3D();
+            helixPoints.Color = Colors.White;
+            var newPoints = vertices.Where(x => (x.z < 0.5) && (x.z > 0.4)).Select(p => new Point3D(p.x, p.y, p.z));
+            helixPoints.Points = new Point3DCollection(newPoints);
+
+            //var newPc = new PointCloud();
+
+            //var downsampledPC = new PointCloudOfXYZ();
+            //pcl.Downsample(4, downsampledPC);
+
+            //var filter = new PclSharp.Filters.StatisticalOutlierRemovalOfXYZ();
+            //var filteredPC = new PointCloudOfXYZ();
+            //filter.SetInputCloud(downsampledPC);
+            //filter.filter(filteredPC);
+
+            //var helixPoints = new PointsVisual3D();
+            //foreach (var p in filteredPC.Points)
+            //{
+            //    helixPoints.Points.Add(new System.Windows.Media.Media3D.Point3D(p.X, p.Y, p.Z));
+            //}
+
+            var previewWindow = new PreviewWindow(helixPoints);
             previewWindow.Show();
         }
     }

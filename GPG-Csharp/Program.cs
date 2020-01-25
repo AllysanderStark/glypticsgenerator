@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Linq;
 
-namespace Intel.RealSense
+namespace GPG_Csharp
 {
     class Program
     {
