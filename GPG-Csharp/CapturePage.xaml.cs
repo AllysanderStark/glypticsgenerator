@@ -21,9 +21,9 @@ using System.Windows.Media.Media3D;
 namespace GPG_Csharp
 {
     /// <summary>
-    /// Interaction logic for Window.xaml
+    /// Interaction logic for CapturePage.xaml
     /// </summary>
-    public partial class CaptureWindow : Window
+    public partial class CapturePage : Page
     {
         private Pipeline pipeline = new Pipeline();
         private Colorizer colorizer = new Colorizer();
@@ -34,9 +34,10 @@ namespace GPG_Csharp
 
         // Filters
         private DecimationFilter decFilter = new DecimationFilter();
+        private ThresholdFilter thresholdFilter = new ThresholdFilter();
+        private HoleFillingFilter holeFillingFilter = new HoleFillingFilter();
         private SpatialFilter spatialFilter = new SpatialFilter();
         private TemporalFilter temporalFilter = new TemporalFilter();
-        private HoleFillingFilter holeFillingFilter = new HoleFillingFilter();
 
         static Action<VideoFrame> UpdateImage(Image img)
         {
@@ -48,27 +49,32 @@ namespace GPG_Csharp
             });
         }
 
-        public CaptureWindow()
+        public CapturePage()
         {
             InitializeComponent();
 
-            //spatialFilter.Options[Option.FilterMagnitude].Value = 2.0f;
-
+            spatialFilter.Options[Option.FilterMagnitude].Value = 5.0f;
+            //spatialFilter.Options[Option.HolesFill].Value = 1.0f;
+            colorizer.Options[Option.HistogramEqualizationEnabled].Value = 1f;
+            colorizer.Options[Option.MinDistance].Value = 0.4f;
+            colorizer.Options[Option.MaxDistance].Value = 0.5f;
+            thresholdFilter.Options[Option.MinDistance].Value = 0.4f;
+            thresholdFilter.Options[Option.MaxDistance].Value = 0.5f;
             try
             {
                 //Action<VideoFrame> updateDepth;
                 //Action<VideoFrame> updateColor;
 
-                /*
-                var pp = pipe.Start();
-                FrameSet frames = pipe.WaitForFrames();
-                SetupWindow(pp, out updateDepth);
-                using (var df = frames.FirstOrDefault(Stream.Depth))
-                {
-                    var colorizedDepth = colorizer.Process<VideoFrame>(df);
-                    Dispatcher.Invoke(DispatcherPriority.Render, updateDepth, colorizedDepth);
-                }
-                */
+
+                //var pp = pipeline.Start();
+                //FrameSet frames = pipeline.WaitForFrames();
+                //SetupWindow(pp, out updateDepth);
+                //using (var df = frames.FirstOrDefault(Stream.Depth))
+                //{
+                //    var colorizedDepth = colorizer.Process<VideoFrame>(df);
+                //    Dispatcher.Invoke(DispatcherPriority.Render, updateDepth, colorizedDepth);
+                //}
+
 
                 var cfg = new Config();
                 cfg.EnableStream(Stream.Depth, 640, 480);
@@ -79,8 +85,6 @@ namespace GPG_Csharp
                 // Get the recommended processing blocks for the depth sensor
                 var sensor = pp.Device.QuerySensors<Sensor>().First(s => s.Is(Extension.DepthSensor));
                 var blocks = sensor.ProcessingBlocks.ToList();
-
-                //sensor.Options[Option.HolesFill].Value = 1;
 
                 // Allocate bitmaps for rendring.
                 // Since the sample aligns the depth frames to the color frames, both of the images will have the color resolution
@@ -114,6 +118,8 @@ namespace GPG_Csharp
                             f = p.Process(f).DisposeWith(releaser);
 
                         f = f.ApplyFilter(align).DisposeWith(releaser);
+                        f = f.ApplyFilter(thresholdFilter).DisposeWith(releaser);
+                        f = f.ApplyFilter(temporalFilter).DisposeWith(releaser);
                         f = f.ApplyFilter(colorizer).DisposeWith(releaser);
 
                         var frames = f.As<FrameSet>().DisposeWith(releaser);
@@ -128,13 +134,13 @@ namespace GPG_Csharp
                     }
                 });
 
-                // Register to results of processing via a callback:
+                //Register to results of processing via a callback:
                 block.Start(f =>
                 {
                     using (var frames = f.As<FrameSet>())
                     {
                         var colorFrame = frames.ColorFrame.DisposeWith(frames);
-                        var colorizedDepth = frames.First<VideoFrame>(Stream.Depth, Format.Rgb8).DisposeWith(frames);
+                        var colorizedDepth = frames.First<VideoFrame>(Stream.Depth).DisposeWith(frames);
 
                         Dispatcher.Invoke(DispatcherPriority.Render, updateDepth, colorizedDepth);
                         Dispatcher.Invoke(DispatcherPriority.Render, updateColor, colorFrame);
@@ -155,36 +161,37 @@ namespace GPG_Csharp
                     }
                 }, token);
 
-                /*
-                SetupWindow(pp, out updateDepth, out updateColor);
 
-                Task.Factory.StartNew(() =>
-                {
-                    while (!tokenSource.Token.IsCancellationRequested)
-                    {
-                        // We wait for the next available FrameSet and using it as a releaser object that would track
-                        // all newly allocated .NET frames, and ensure deterministic finalization
-                        // at the end of scope. 
-                        using (var frames = pipeline.WaitForFrames())
-                        {
-                            var colorFrame = frames.ColorFrame.DisposeWith(frames);
-                            var depthFrame = frames.DepthFrame.DisposeWith(frames);
+                //SetupWindow(pp, out updateDepth, out updateColor);
 
-                            // We colorize the depth frame for visualization purposes
-                            //var colorizedDepth = colorizer.Process<VideoFrame>(depthFrame).DisposeWith(frames);
-                            var filteredDepth = decFilter.Process<VideoFrame>(depthFrame);
-                            //filteredDepth = spatialFilter.Process<VideoFrame>(filteredDepth);
-                            //pc.MapTexture(colorFrame);
-                            //var test = pc.Process(depthFrame).As<Points>();
+                //Task.Factory.StartNew(() =>
+                //{
+                //    while (!tokenSource.Token.IsCancellationRequested)
+                //    {
+                //        // We wait for the next available FrameSet and using it as a releaser object that would track
+                //        // all newly allocated .NET frames, and ensure deterministic finalization
+                //        // at the end of scope. 
+                //        using (var frames = pipeline.WaitForFrames())
+                //        {
+                //            var colorFrame = frames.ColorFrame.DisposeWith(frames);
+                //            var depthFrame = frames.DepthFrame.DisposeWith(frames);
 
-                            // Render the frames.
-                            //Dispatcher.Invoke(DispatcherPriority.Render, updateDepth, colorizedDepth);
-                            Dispatcher.Invoke(DispatcherPriority.Render, updateDepth, filteredDepth);
-                            Dispatcher.Invoke(DispatcherPriority.Render, updateColor, colorFrame);
-                        }
-                    }
-                }, tokenSource.Token);
-                */
+                //            // We colorize the depth frame for visualization purposes
+                //            var processedDepth = align.Process<VideoFrame>(depthFrame).DisposeWith(frames);
+                //            processedDepth = colorizer.Process<VideoFrame>(processedDepth).DisposeWith(frames);
+                //            //processedDepth = decFilter.Process<VideoFrame>(processedDepth).DisposeWith(frames);
+                //            //processedDepth = spatialFilter.Process<VideoFrame>(processedDepth).DisposeWith(frames);
+                //            processedDepth = thresholdFilter.Process<VideoFrame>(processedDepth).DisposeWith(frames);
+                //            //pc.MapTexture(colorFrame);
+                //            //var test = pc.Process(depthFrame).As<Points>();
+
+                //            // Render the frames.
+                //            Dispatcher.Invoke(DispatcherPriority.Render, updateDepth, processedDepth);
+                //            Dispatcher.Invoke(DispatcherPriority.Render, updateColor, colorFrame);
+                //        }
+                //    }
+                //}, tokenSource.Token);
+                
             }
             catch (Exception ex)
             {
@@ -198,28 +205,28 @@ namespace GPG_Csharp
             tokenSource.Cancel();
         }
 
-        private void SetupWindow(PipelineProfile pipelineProfile, out Action<VideoFrame> depth, out Action<VideoFrame> color)
-        {
-            using (var p = pipelineProfile.GetStream(Stream.Depth).As<VideoStreamProfile>())
-                imgDepth.Source = new WriteableBitmap(p.Width, p.Height, 96d, 96d, PixelFormats.Rgb24, null);
-            depth = UpdateImage(imgDepth);
-            
-            using (var p = pipelineProfile.GetStream(Stream.Color).As<VideoStreamProfile>())
-                imgColor.Source = new WriteableBitmap(p.Width, p.Height, 96d, 96d, PixelFormats.Rgb24, null);
-            color = UpdateImage(imgColor);
-        }
+        //private void SetupWindow(PipelineProfile pipelineProfile, out Action<VideoFrame> depth, out Action<VideoFrame> color)
+        //{
+        //    using (var p = pipelineProfile.GetStream(Stream.Depth).As<VideoStreamProfile>())
+        //        imgDepth.Source = new WriteableBitmap(p.Width, p.Height, 96d, 96d, PixelFormats.Rgb24, null);
+        //    depth = UpdateImage(imgDepth);
+
+        //    using (var p = pipelineProfile.GetStream(Stream.Color).As<VideoStreamProfile>())
+        //        imgColor.Source = new WriteableBitmap(p.Width, p.Height, 96d, 96d, PixelFormats.Rgb24, null);
+        //    color = UpdateImage(imgColor);
+        //}
 
         private void CaptureFrame(object sender, RoutedEventArgs e)
         {
-            tokenSource.Cancel();
+            //tokenSource.Cancel();
             var frames = pipeline.WaitForFrames();
             var df = frames.DepthFrame;
-            //var filteredDepth = df.As<Frame>();
+            var filteredDepth = df.As<Intel.RealSense.Frame>();
 
-            //filteredDepth = decFilter.Process(filteredDepth);
+            filteredDepth = decFilter.Process(filteredDepth);
             //filteredDepth = spatialFilter.Process(filteredDepth);
-            //filteredDepth = temporalFilter.Process(filteredDepth);
             //filteredDepth = holeFillingFilter.Process(filteredDepth);
+            filteredDepth = temporalFilter.Process(filteredDepth);
 
             var cf = frames.ColorFrame;
             pc.MapTexture(cf);
@@ -227,7 +234,8 @@ namespace GPG_Csharp
             //var filteredPoints = pc.Process(filteredDepth).As<Points>();
             //filteredPoints.ExportToPLY("filtered.ply", colorizer.Process<VideoFrame>(filteredDepth));
 
-            var points = pc.Process(df).As<Points>();
+            //var points = pc.Process(df).As<Points>();
+            var points = pc.Process(filteredDepth).As<Points>();
 
             var vertices = new Intel.RealSense.Math.Vertex[points.Count];
             points.CopyVertices(vertices);
@@ -245,8 +253,14 @@ namespace GPG_Csharp
             //var newVertices = new List<Math.Vertex>(); //[points.Count]
             //var pcl = new PointCloudOfXYZ();
             var helixPoints = new PointsVisual3D();
-            helixPoints.Color = Colors.White;
-            var newPoints = vertices.Where(x => (x.z < 0.5) && (x.z > 0.4)).Select(p => new Point3D(p.x, p.y, p.z));
+            helixPoints.Color = Colors.White; // 
+            var newPoints = vertices.
+                Where(p => (p.z < 0.5) && (p.z > 0.4)).
+                Select(p => new Point3D(p.x, p.y, p.z));
+            var xMed = newPoints.Average(p => p.X);
+            var yMed = newPoints.Average(p => p.Y);
+            newPoints = newPoints.Select(p => new Point3D(p.X - xMed, p.Y - yMed, p.Z)); // Can apply ScaleZ here
+            newPoints = newPoints.Where(p => (p.X * p.X + p.Y * p.Y <= 0.025));
             helixPoints.Points = new Point3DCollection(newPoints);
 
             //var newPc = new PointCloud();
@@ -265,8 +279,7 @@ namespace GPG_Csharp
             //    helixPoints.Points.Add(new System.Windows.Media.Media3D.Point3D(p.X, p.Y, p.Z));
             //}
 
-            var previewWindow = new PreviewWindow(helixPoints);
-            previewWindow.Show();
+            NavigationService.Navigate(new PreviewPage(helixPoints));
         }
     }
 }

@@ -1,33 +1,33 @@
-﻿<Window x:Class="GPG_Csharp.PreviewWindow"
+﻿<Page x:Class="GPG_Csharp.PreviewPage"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:h="clr-namespace:HelixToolkit.Wpf;assembly=HelixToolkit.Wpf"
         mc:Ignorable="d"
-        Title="Preview" Height="450" Width="600" WindowState="Maximized">
+        Title="Preview">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="20"/>
-            <RowDefinition Height="20"/>
             <RowDefinition/>
+            <RowDefinition Height="50"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
             <ColumnDefinition/>
             <ColumnDefinition/>
-            <ColumnDefinition Width="100"/>
         </Grid.ColumnDefinitions>
-        <TextBox Name="rotX" Grid.Row="1" Grid.Column="0" Width="100" Text="0"/>
-        <TextBox Name="rotY" Grid.Row="1" Grid.Column="1" Width="100" Text="0"/>
-        <TextBox Name="rotZ" Grid.Row="1" Grid.Column="2" Width="100" Text="0"/>
-        <Button Name="btn_Apply" Grid.Row="1" Grid.Column="3" Click="rotatePointCloud">Apply</Button>
-        <h:HelixViewport3D Name="viewport" Background="Black" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4">
+        <Button Name="btn_Retry" Grid.Row="1" Grid.Column="1" Click="retryCapture" Margin="0,10,0,10" Height="30">Try again</Button>
+        <h:HelixViewport3D Name="viewport" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
+            <h:HelixViewport3D.Background>
+                <ImageBrush x:Name="bgImage" ImageSource="../../data/museum_blur.png" Stretch="UniformToFill"
+                            TileMode="Tile" Viewport="0,0,1,1"/>
+            </h:HelixViewport3D.Background>
+            <!-- Viewport="0,0,1250,300"-->
             <h:HelixViewport3D.Camera>
                 <PerspectiveCamera FarPlaneDistance="30" LookDirection="-3.5,0,0" UpDirection="0,0,1" NearPlaneDistance="0.1" Position="3,0,0" FieldOfView="60" />
             </h:HelixViewport3D.Camera>
             <h:DefaultLights/>
-            <h:FileModelVisual3D x:Name="coin" Source="..\..\data\coin.obj">
+            <h:FileModelVisual3D x:Name="coin" Source="../../data/coin.obj">
                 <h:FileModelVisual3D.Transform>
                     <Transform3DGroup>
                         <RotateTransform3D>
@@ -52,4 +52,4 @@
             </h:FileModelVisual3D>
         </h:HelixViewport3D>
     </Grid>
-</Window>
+</Page>

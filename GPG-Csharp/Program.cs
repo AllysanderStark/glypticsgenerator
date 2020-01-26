@@ -8,7 +8,7 @@ namespace GPG_Csharp
         [STAThread]
         static void Main(string[] args)
         {
-            var w = new CaptureWindow();
+            var w = new MainWindow();
             w.ShowDialog();
         }
     }
