@@ -17,6 +17,10 @@ using System.Windows.Threading;
 using Intel.RealSense;
 using HelixToolkit.Wpf;
 using System.Windows.Media.Media3D;
+using PclSharp;
+using PclSharp.Struct;
+using PclSharp.Filters;
+using System.Numerics;
 
 namespace GPG_Csharp
 {
@@ -52,6 +56,9 @@ namespace GPG_Csharp
         public CapturePage()
         {
             InitializeComponent();
+
+            //imgColor.LayoutTransform = new RotateTransform(180);
+            //imgDepth.LayoutTransform = new RotateTransform(180);
 
             spatialFilter.Options[Option.FilterMagnitude].Value = 5.0f;
             //spatialFilter.Options[Option.HolesFill].Value = 1.0f;
@@ -240,45 +247,41 @@ namespace GPG_Csharp
             var vertices = new Intel.RealSense.Math.Vertex[points.Count];
             points.CopyVertices(vertices);
 
-            //var xs = vertices.Select(x => x.x);
-            //var xmin = xs.Min(); var xmax = xs.Max();
-            //var ys = vertices.Select(x => x.y);
-            //var ymin = ys.Min(); var ymax = ys.Max();
-            //var zs = vertices.Select(x => x.z);
-            //var zmin = zs.Min(); var zmax = zs.Max();
-            //Console.WriteLine("X: " + xmin + " - " + xmax + ", Y: " + ymin + " - " + ymax + ", Z: " + zmin + " - " + zmax);
-
             points.ExportToPLY("raw.ply", colorizer.Process<VideoFrame>(df));
 
-            //var newVertices = new List<Math.Vertex>(); //[points.Count]
-            //var pcl = new PointCloudOfXYZ();
-            var helixPoints = new PointsVisual3D();
-            helixPoints.Color = Colors.White; // 
             var newPoints = vertices.
                 Where(p => (p.z < 0.5) && (p.z > 0.4)).
                 Select(p => new Point3D(p.x, p.y, p.z));
             var xMed = newPoints.Average(p => p.X);
             var yMed = newPoints.Average(p => p.Y);
             newPoints = newPoints.Select(p => new Point3D(p.X - xMed, p.Y - yMed, p.Z)); // Can apply ScaleZ here
-            newPoints = newPoints.Where(p => (p.X * p.X + p.Y * p.Y <= 0.025));
-            helixPoints.Points = new Point3DCollection(newPoints);
+            newPoints = newPoints.Where(p => (p.X * p.X + p.Y * p.Y <= 0.025)); // Circular shape
 
-            //var newPc = new PointCloud();
+            // Creating a PCL point cloud
+            var pcl = new PointCloudOfXYZ();
+            foreach (var point in newPoints)
+            {
+                pcl.Add(new Vector3((float) point.X, (float) point.Y, (float) point.Z));
+            }
 
-            //var downsampledPC = new PointCloudOfXYZ();
-            //pcl.Downsample(4, downsampledPC);
+            var downsampledPC = new PointCloudOfXYZ();
 
-            //var filter = new PclSharp.Filters.StatisticalOutlierRemovalOfXYZ();
-            //var filteredPC = new PointCloudOfXYZ();
-            //filter.SetInputCloud(downsampledPC);
+            var downsampleFilter = new VoxelGridOfXYZ();
+            downsampleFilter.SetInputCloud(pcl);
+            downsampleFilter.LeafSize = new Vector3(0.01f, 0.01f, 0.01f);
+            downsampleFilter.filter(downsampledPC);
+
+            //var filter = new StatisticalOutlierRemovalOfXYZ();
+            //filter.SetInputCloud(pcl);
             //filter.filter(filteredPC);
 
-            //var helixPoints = new PointsVisual3D();
-            //foreach (var p in filteredPC.Points)
-            //{
-            //    helixPoints.Points.Add(new System.Windows.Media.Media3D.Point3D(p.X, p.Y, p.Z));
-            //}
+            var helixPoints = new PointsVisual3D();
+            foreach (var p in downsampledPC.Points)
+            {
+                helixPoints.Points.Add(new Point3D(p.X, p.Y, p.Z));
+            }
 
+            helixPoints.Color = Colors.White;
             NavigationService.Navigate(new PreviewPage(helixPoints));
         }
     }

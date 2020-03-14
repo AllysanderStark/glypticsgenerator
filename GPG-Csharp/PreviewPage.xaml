@@ -19,7 +19,7 @@
         <Button Name="btn_Retry" Grid.Row="1" Grid.Column="1" Click="retryCapture" Margin="0,10,0,10" Height="30">Try again</Button>
         <h:HelixViewport3D Name="viewport" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
             <h:HelixViewport3D.Background>
-                <ImageBrush x:Name="bgImage" ImageSource="../../data/museum_blur.png" Stretch="UniformToFill"
+                <ImageBrush x:Name="bgImage" ImageSource="data/museum_blur.png" Stretch="UniformToFill"
                             TileMode="Tile" Viewport="0,0,1,1"/>
             </h:HelixViewport3D.Background>
             <!-- Viewport="0,0,1250,300"-->
@@ -27,7 +27,7 @@
                 <PerspectiveCamera FarPlaneDistance="30" LookDirection="-3.5,0,0" UpDirection="0,0,1" NearPlaneDistance="0.1" Position="3,0,0" FieldOfView="60" />
             </h:HelixViewport3D.Camera>
             <h:DefaultLights/>
-            <h:FileModelVisual3D x:Name="coin" Source="../../data/coin.obj">
+            <h:FileModelVisual3D x:Name="coin" Source="data/coin.obj">
                 <h:FileModelVisual3D.Transform>
                     <Transform3DGroup>
                         <RotateTransform3D>
