@@ -26,6 +26,7 @@ enum class direction
 	to_color
 };
 
+void capture_frame(rs2::pipeline pipe);
 void generate_mesh(PointCloud<PointXYZ>::Ptr cloud);
 
 std::chrono::steady_clock::time_point begin;
@@ -41,7 +42,7 @@ int main(int argc, char** argv) try
 	begin = std::chrono::steady_clock::now();
 
 	// Create and initialize GUI related objects
-	window app(1280, 720, "RealSense Align Example"); // Simple window handling
+	window app(1280, 720, "Glyptics Portrait Generator"); // Simple window handling
 	ImGui_ImplGlfw_Init(app, false);      // ImGui library intializition
 	rs2::colorizer c;                     // Helper to colorize depth images
 	texture depth_image, color_image;     // Helpers for renderig images
@@ -53,9 +54,6 @@ int main(int argc, char** argv) try
 	cfg.enable_stream(RS2_STREAM_COLOR);
 	pipe.start(cfg);
 
-	pointcloud pc;
-	points pts;
-
 	// Define two align objects. One will be used to align
 	// to depth viewport and the other to color.
 	// Creating align object is an expensive operation
@@ -63,8 +61,8 @@ int main(int argc, char** argv) try
 	rs2::align align_to_depth(RS2_STREAM_DEPTH);
 	rs2::align align_to_color(RS2_STREAM_COLOR);
 
-	float       alpha = 0.5f;               // Transparancy coefficient 
-	direction   dir = direction::to_depth;  // Alignment direction
+	float       alpha = 0.6f;               // Transparancy coefficient 
+	direction   dir = direction::to_color;  // Alignment direction
 
 	while (app) // Application still alive?
 	{
@@ -111,13 +109,42 @@ int main(int argc, char** argv) try
 
 		// Render the UI:
 		ImGui_ImplGlfw_NewFrame(1);
+		static const int flags = ImGuiWindowFlags_NoCollapse
+			| ImGuiWindowFlags_NoScrollbar
+			| ImGuiWindowFlags_NoSavedSettings
+			| ImGuiWindowFlags_NoTitleBar
+			| ImGuiWindowFlags_NoResize
+			| ImGuiWindowFlags_NoMove;
+		ImGui::Begin("capture", nullptr, flags);
+		if (ImGui::Button("Capture"))
+		{
+			capture_frame(pipe);
+		}
+		ImGui::End();
 		ImGui::Render();
 	}
+	return EXIT_SUCCESS;
+}
+catch (const rs2::error & e)
+{
+	std::cerr << "RealSense error calling " << e.get_failed_function() << "(" << e.get_failed_args() << "):\n    " << e.what() << std::endl;
+	return EXIT_FAILURE;
+}
+catch (const std::exception & e)
+{
+	std::cerr << e.what() << std::endl;
+	return EXIT_FAILURE;
+}
+
+void capture_frame(rs2::pipeline pipe)
+{
+	pointcloud pc;
+	points pts;
 
 	auto frames = pipe.wait_for_frames();
 	auto df = frames.get_depth_frame();
-	
-	pipe.stop();
+
+	//pipe.stop();
 
 	PointCloud<PointXYZ>::Ptr cloud(new PointCloud<PointXYZ>);
 
@@ -146,22 +173,10 @@ int main(int argc, char** argv) try
 	grid.setLeafSize(0.002f, 0.002f, 0.002f);
 	grid.filter(*downsampledCloud);
 	end = std::chrono::steady_clock::now();
-	std::cout << "Downsampled point cloud by a factor of " << (float)(pts.size())/downsampledCloud->size() << ": " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
+	std::cout << "Downsampled point cloud by a factor of " << (float)(pts.size()) / downsampledCloud->size() << ": " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
 	begin = end;
 
 	generate_mesh(downsampledCloud);
-
-	return EXIT_SUCCESS;
-}
-catch (const rs2::error & e)
-{
-	std::cerr << "RealSense error calling " << e.get_failed_function() << "(" << e.get_failed_args() << "):\n    " << e.what() << std::endl;
-	return EXIT_FAILURE;
-}
-catch (const std::exception & e)
-{
-	std::cerr << e.what() << std::endl;
-	return EXIT_FAILURE;
 }
 
 void generate_mesh(PointCloud<PointXYZ>::Ptr cloud) 
