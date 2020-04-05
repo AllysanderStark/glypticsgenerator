@@ -11,7 +11,7 @@ public:
 
 	Ogre::SceneManager* mScene;
 
-	void run();
+	void setup(void);
 
 private:
 	bool keyPressed(const OgreBites::KeyboardEvent& evt);

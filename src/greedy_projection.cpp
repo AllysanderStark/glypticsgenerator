@@ -3,7 +3,7 @@
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/surface/gp3.h>
-#include <pcl/io/vtk_io.h>
+#include <pcl/io/obj_io.h>
 #include <pcl/filters/voxel_grid.h>
 
 #include <librealsense2/rs.hpp>
@@ -34,10 +34,12 @@ std::chrono::steady_clock::time_point end;
 
 int main(int argc, char** argv) try
 {
-	/*
+	
 	MainApplication ma;
-	ma.run();
-	*/
+	ma.initApp();
+	ma.getRoot()->startRendering();
+	ma.closeApp();
+	
 	// Begin time measurement!
 	begin = std::chrono::steady_clock::now();
 
@@ -144,8 +146,6 @@ void capture_frame(rs2::pipeline pipe)
 	auto frames = pipe.wait_for_frames();
 	auto df = frames.get_depth_frame();
 
-	//pipe.stop();
-
 	PointCloud<PointXYZ>::Ptr cloud(new PointCloud<PointXYZ>);
 
 	pts = pc.calculate(df);
@@ -159,7 +159,7 @@ void capture_frame(rs2::pipeline pipe)
 		auto pt = vertices[i];
 		if (pt.x != 0.0f)
 		{
-			cloud->push_back(PointXYZ(pt.x, pt.y, pt.z));
+			cloud->push_back(PointXYZ(pt.x, -pt.y, pt.z));
 		}
 	}
 
@@ -170,7 +170,7 @@ void capture_frame(rs2::pipeline pipe)
 	PointCloud<PointXYZ>::Ptr downsampledCloud(new PointCloud<PointXYZ>);
 	VoxelGrid<PointXYZ> grid;
 	grid.setInputCloud(cloud);
-	grid.setLeafSize(0.002f, 0.002f, 0.002f);
+	grid.setLeafSize(0.001f, 0.001f, 0.001f);
 	grid.filter(*downsampledCloud);
 	end = std::chrono::steady_clock::now();
 	std::cout << "Downsampled point cloud by a factor of " << (float)(pts.size()) / downsampledCloud->size() << ": " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
@@ -184,14 +184,15 @@ void generate_mesh(PointCloud<PointXYZ>::Ptr cloud)
 	std::cout << "Starting mesh generation!" << std::endl;
 
 	// Normal estimation*
-	NormalEstimation<PointXYZ, Normal> n;
 	PointCloud<Normal>::Ptr normals(new PointCloud<Normal>);
+	NormalEstimation<PointXYZ, Normal> ne;
 	search::KdTree<PointXYZ>::Ptr tree(new search::KdTree<PointXYZ>);
 	tree->setInputCloud(cloud);
-	n.setInputCloud(cloud);
-	n.setSearchMethod(tree);
-	n.setKSearch(20);
-	n.compute(*normals);
+	ne.setInputCloud(cloud);
+	ne.setSearchMethod(tree);
+	ne.setKSearch(20);
+	ne.setViewPoint(0, 0, -5);
+	ne.compute(*normals);
 	//* normals should not contain the point normals + surface curvatures
 
 	end = std::chrono::steady_clock::now();
@@ -244,7 +245,7 @@ void generate_mesh(PointCloud<PointXYZ>::Ptr cloud)
 	//std::vector<int> states = gp3.getPointStates();
 
 	// Finish
-	io::saveVTKFile("mesh.vtk", triangles);
+	io::saveOBJFile("mesh.obj", triangles);
 	
 	end = std::chrono::steady_clock::now();
 	std::cout << "Saved: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
