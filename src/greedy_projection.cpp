@@ -16,6 +16,9 @@
 #include <iostream>
 #include <chrono>
 
+#define MIN_SCAN_DISTANCE 0.3f
+#define MAX_SCAN_DISTANCE 0.5f
+
 using namespace pcl;
 using namespace rs2;
 
@@ -28,18 +31,17 @@ enum class direction
 
 void capture_frame(rs2::pipeline pipe);
 void generate_mesh(PointCloud<PointXYZ>::Ptr cloud);
+void show_mesh();
 
 std::chrono::steady_clock::time_point begin;
 std::chrono::steady_clock::time_point end;
 
+MainApplication ma;
+
 int main(int argc, char** argv) try
 {
-	
-	MainApplication ma;
 	ma.initApp();
-	ma.getRoot()->startRendering();
-	ma.closeApp();
-	
+
 	// Begin time measurement!
 	begin = std::chrono::steady_clock::now();
 
@@ -48,6 +50,7 @@ int main(int argc, char** argv) try
 	ImGui_ImplGlfw_Init(app, false);      // ImGui library intializition
 	rs2::colorizer c;                     // Helper to colorize depth images
 	texture depth_image, color_image;     // Helpers for renderig images
+	threshold_filter tf;				  // Filter for thresholds
 
 	// Create a pipeline to easily configure and start the camera
 	rs2::pipeline pipe;
@@ -65,6 +68,12 @@ int main(int argc, char** argv) try
 
 	float       alpha = 0.6f;               // Transparancy coefficient 
 	direction   dir = direction::to_color;  // Alignment direction
+
+	c.set_option(RS2_OPTION_HISTOGRAM_EQUALIZATION_ENABLED, 1.0f);
+	c.set_option(RS2_OPTION_MAX_DISTANCE, MAX_SCAN_DISTANCE);
+	c.set_option(RS2_OPTION_MIN_DISTANCE, MIN_SCAN_DISTANCE);
+	tf.set_option(RS2_OPTION_MAX_DISTANCE, MAX_SCAN_DISTANCE);
+	tf.set_option(RS2_OPTION_MIN_DISTANCE, MIN_SCAN_DISTANCE);
 
 	while (app) // Application still alive?
 	{
@@ -85,7 +94,11 @@ int main(int argc, char** argv) try
 		// With the aligned frameset we proceed as usual
 		auto depth = frameset.get_depth_frame();
 		auto color = frameset.get_color_frame();
-		auto colorized_depth = c.colorize(depth);
+
+		auto filtered = depth;
+		filtered = tf.process(filtered);
+
+		auto colorized_depth = c.colorize(filtered);
 
 		glEnable(GL_BLEND);
 		// Use the Alpha channel for blending
@@ -154,12 +167,34 @@ void capture_frame(rs2::pipeline pipe)
 	std::cout << "Adding points: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
 	begin = end;
 	auto vertices = pts.get_vertices();
+
+	std::vector<rs2::vertex> newPoints;
+	float totalX = 0;
+	float totalY = 0;
+
 	for (int i = 0; i < pts.size(); i++)
 	{
 		auto pt = vertices[i];
-		if (pt.x != 0.0f)
+		if (pt.x != 0.0f || pt.y != 0.0f || pt.z != 0.0f)
 		{
-			cloud->push_back(PointXYZ(pt.x, -pt.y, pt.z));
+			if (pt.z > MIN_SCAN_DISTANCE && pt.z <= MAX_SCAN_DISTANCE) 
+			{
+				newPoints.push_back(pt);
+				totalX += pt.x;
+				totalY += pt.y;
+			}
+		}
+	}
+
+	// average position of all points
+	float avgX = totalX / newPoints.size();
+	float avgY = totalY / newPoints.size();
+	
+	for (auto pt : newPoints) {
+		float newX = pt.x - avgX, newY = pt.y - avgY; //centering points
+		if (newX * newX + newY * newY <= 0.025) //circular shape
+		{
+			cloud->points.push_back(PointXYZ(newX, -newY, pt.z));
 		}
 	}
 
@@ -170,7 +205,13 @@ void capture_frame(rs2::pipeline pipe)
 	PointCloud<PointXYZ>::Ptr downsampledCloud(new PointCloud<PointXYZ>);
 	VoxelGrid<PointXYZ> grid;
 	grid.setInputCloud(cloud);
+#if NDEBUG
+	std::cout << "Setting leaf size to 0.001" << std::endl;
 	grid.setLeafSize(0.001f, 0.001f, 0.001f);
+#else
+	std::cout << "Setting leaf size to 0.03" << std::endl;
+	grid.setLeafSize(0.03f, 0.03f, 0.03f);
+#endif
 	grid.filter(*downsampledCloud);
 	end = std::chrono::steady_clock::now();
 	std::cout << "Downsampled point cloud by a factor of " << (float)(pts.size()) / downsampledCloud->size() << ": " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
@@ -227,10 +268,6 @@ void generate_mesh(PointCloud<PointXYZ>::Ptr cloud)
 	gp3.setMaximumAngle(2 * M_PI / 3); // 2pi/3 = 120 degrees
 	gp3.setNormalConsistency(false);
 
-	end = std::chrono::steady_clock::now();
-	std::cout << "Greedy projection configured: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
-	begin = end;
-
 	// Get result
 	gp3.setInputCloud(cloud_with_normals);
 	gp3.setSearchMethod(tree2);
@@ -240,13 +277,17 @@ void generate_mesh(PointCloud<PointXYZ>::Ptr cloud)
 	std::cout << "Reconstructed: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
 	begin = end;
 
-	// Additional vertex information
-	//std::vector<int> parts = gp3.getPartIDs();
-	//std::vector<int> states = gp3.getPointStates();
-
 	// Finish
 	io::saveOBJFile("mesh.obj", triangles);
-	
+
 	end = std::chrono::steady_clock::now();
 	std::cout << "Saved: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
+
+	ma.add_mesh(triangles);
+	show_mesh();
+}
+
+void show_mesh() {
+	ma.getRoot()->startRendering();
+	ma.closeApp();
 }
