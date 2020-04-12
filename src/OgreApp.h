@@ -10,15 +10,15 @@
 #include <pcl/point_types.h>
 #include <pcl/conversions.h>
 
-class MainApplication : public OgreBites::ApplicationContext, public OgreBites::InputListener
+class OgreApp : public OgreBites::ApplicationContext, public OgreBites::InputListener
 {
 public:
-	MainApplication();
+	OgreApp();
 
 	Ogre::SceneManager* mScene;
 
 	void setup(void);
-	void add_mesh(pcl::PolygonMesh mesh);
+	void add_mesh(pcl::PolygonMesh mesh, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
 
 private:
 	bool keyPressed(const OgreBites::KeyboardEvent& evt);

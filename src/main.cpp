@@ -5,22 +5,31 @@
 #include <pcl/surface/gp3.h>
 #include <pcl/io/obj_io.h>
 #include <pcl/filters/voxel_grid.h>
-
 #include <librealsense2/rs.hpp>
-
-#include "helpers.h"
-#include "MainApplication.h"
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
+#include <dlib/image_processing/frontal_face_detector.h>
+#include <dlib/image_processing/render_face_detections.h>
+#include <dlib/image_processing.h>
+#include <dlib/gui_widgets.h>
+#include <dlib/opencv.h>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/opencv.hpp>
 
 #include <iostream>
 #include <chrono>
+
+
+#include "helpers.h"
+#include "OgreApp.h"
 
 #define MIN_SCAN_DISTANCE 0.3f
 #define MAX_SCAN_DISTANCE 0.5f
 
 using namespace pcl;
 using namespace rs2;
+using namespace dlib;
+using namespace cv;
 
 // to define the target stream
 enum class direction
@@ -36,27 +45,32 @@ void show_mesh();
 std::chrono::steady_clock::time_point begin;
 std::chrono::steady_clock::time_point end;
 
-MainApplication ma;
+OgreApp app;
+
+frontal_face_detector detector = get_frontal_face_detector();
+shape_predictor predictor;
 
 int main(int argc, char** argv) try
 {
-	ma.initApp();
+	deserialize("C:\\landmarks.dat") >> predictor;
 
 	// Begin time measurement!
 	begin = std::chrono::steady_clock::now();
 
 	// Create and initialize GUI related objects
-	window app(1280, 720, "Glyptics Portrait Generator"); // Simple window handling
-	ImGui_ImplGlfw_Init(app, false);      // ImGui library intializition
-	rs2::colorizer c;                     // Helper to colorize depth images
-	texture depth_image, color_image;     // Helpers for renderig images
-	threshold_filter tf;				  // Filter for thresholds
+	//window app(1280, 720, "Glyptics Portrait Generator"); // Simple window handling
+	//ImGui_ImplGlfw_Init(app, false);      // ImGui library intializition
+	rs2::colorizer colorizer;                     // Helper to colorize depth images
+	//texture depth_image, color_image;     // Helpers for rendering images
+	threshold_filter threshold_filter;	  // Filter for thresholds
+
+	image_window dlib_win;
 
 	// Create a pipeline to easily configure and start the camera
 	rs2::pipeline pipe;
 	rs2::config cfg;
-	cfg.enable_stream(RS2_STREAM_DEPTH);
-	cfg.enable_stream(RS2_STREAM_COLOR);
+	cfg.enable_stream(RS2_STREAM_DEPTH, 640, 480);
+	cfg.enable_stream(RS2_STREAM_COLOR, 640, 480);
 	pipe.start(cfg);
 
 	// Define two align objects. One will be used to align
@@ -66,40 +80,59 @@ int main(int argc, char** argv) try
 	rs2::align align_to_depth(RS2_STREAM_DEPTH);
 	rs2::align align_to_color(RS2_STREAM_COLOR);
 
-	float       alpha = 0.6f;               // Transparancy coefficient 
+	float       alpha = 0.6f;               // Transparency coefficient 
 	direction   dir = direction::to_color;  // Alignment direction
 
-	c.set_option(RS2_OPTION_HISTOGRAM_EQUALIZATION_ENABLED, 1.0f);
-	c.set_option(RS2_OPTION_MAX_DISTANCE, MAX_SCAN_DISTANCE);
-	c.set_option(RS2_OPTION_MIN_DISTANCE, MIN_SCAN_DISTANCE);
-	tf.set_option(RS2_OPTION_MAX_DISTANCE, MAX_SCAN_DISTANCE);
-	tf.set_option(RS2_OPTION_MIN_DISTANCE, MIN_SCAN_DISTANCE);
+	colorizer.set_option(RS2_OPTION_HISTOGRAM_EQUALIZATION_ENABLED, 1.0f);
+	colorizer.set_option(RS2_OPTION_MAX_DISTANCE, MAX_SCAN_DISTANCE);
+	colorizer.set_option(RS2_OPTION_MIN_DISTANCE, MIN_SCAN_DISTANCE);
+	threshold_filter.set_option(RS2_OPTION_MAX_DISTANCE, MAX_SCAN_DISTANCE);
+	threshold_filter.set_option(RS2_OPTION_MIN_DISTANCE, MIN_SCAN_DISTANCE);
 
-	while (app) // Application still alive?
+	while (!dlib_win.is_closed()) 
 	{
 		// Using the align object, we block the application until a frameset is available
 		rs2::frameset frameset = pipe.wait_for_frames();
 
 		if (dir == direction::to_depth)
 		{
-			// Align all frames to depth viewport
 			frameset = align_to_depth.process(frameset);
 		}
 		else
 		{
-			// Align all frames to color viewport
 			frameset = align_to_color.process(frameset);
 		}
 
 		// With the aligned frameset we proceed as usual
-		auto depth = frameset.get_depth_frame();
-		auto color = frameset.get_color_frame();
+		auto depth_frame = frameset.get_depth_frame();
+		auto color_frame = frameset.get_color_frame();
 
-		auto filtered = depth;
-		filtered = tf.process(filtered);
+		auto filtered = depth_frame;
+		filtered = threshold_filter.process(filtered);
 
-		auto colorized_depth = c.colorize(filtered);
+		auto colorized_depth = colorizer.colorize(filtered);
 
+		// Dlib + OpenCV
+		Mat color(Size(640, 480), CV_8UC3, (void*)color_frame.get_data(), Mat::AUTO_STEP);
+		Mat depth(Size(640, 480), CV_8UC3, (void*)depth_frame.get_data(), Mat::AUTO_STEP);
+
+		cv_image<rgb_pixel> cimg(color);
+		cv_image<rgb_pixel> dimg(depth);
+
+		// Detection
+		std::vector<dlib::rectangle> faces = detector(cimg);
+		std::vector<full_object_detection> shapes;
+		for (unsigned long i = 0; i < faces.size(); ++i)
+			shapes.push_back(predictor(cimg, faces[i]));
+
+		Mat ov = Mat::zeros(480, 640, CV_8UC3);
+		cv_image<rgb_pixel> overlay(ov);
+
+		dlib_win.clear_overlay();
+		dlib_win.set_image(cimg);
+		dlib_win.add_overlay(render_face_detections(shapes));
+
+		/*
 		glEnable(GL_BLEND);
 		// Use the Alpha channel for blending
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -109,13 +142,13 @@ int main(int argc, char** argv) try
 			// When aligning to depth, first render depth image
 			// and then overlay color on top with transparancy
 			depth_image.render(colorized_depth, { 0, 0, app.width(), app.height() });
-			color_image.render(color, { 0, 0, app.width(), app.height() }, alpha);
+			color_image.render(color_frame, { 0, 0, app.width(), app.height() }, alpha);
 		}
 		else
 		{
 			// When aligning to color, first render color image
 			// and then overlay depth image on top
-			color_image.render(color, { 0, 0, app.width(), app.height() });
+			color_image.render(color_frame, { 0, 0, app.width(), app.height() });
 			depth_image.render(colorized_depth, { 0, 0, app.width(), app.height() }, 1 - alpha);
 		}
 
@@ -137,6 +170,7 @@ int main(int argc, char** argv) try
 		}
 		ImGui::End();
 		ImGui::Render();
+		*/
 	}
 	return EXIT_SUCCESS;
 }
@@ -283,11 +317,12 @@ void generate_mesh(PointCloud<PointXYZ>::Ptr cloud)
 	end = std::chrono::steady_clock::now();
 	std::cout << "Saved: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
 
-	ma.add_mesh(triangles);
+	app.initApp();
+	app.add_mesh(triangles, cloud);
 	show_mesh();
 }
 
 void show_mesh() {
-	ma.getRoot()->startRendering();
-	ma.closeApp();
+	app.getRoot()->startRendering();
+	app.closeApp();
 }

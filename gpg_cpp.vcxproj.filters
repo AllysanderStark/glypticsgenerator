@@ -6,11 +6,11 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\greedy_projection.cpp" />
-    <ClCompile Include="src\MainApplication.cpp" />
+    <ClCompile Include="src\OgreApp.cpp" />
+    <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\helpers.h" />
-    <ClInclude Include="src\MainApplication.h" />
+    <ClInclude Include="src\OgreApp.h" />
   </ItemGroup>
 </Project>

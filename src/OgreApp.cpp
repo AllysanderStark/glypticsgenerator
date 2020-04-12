@@ -1,5 +1,3 @@
-#include "MainApplication.h"
-
 #include <OgreEntity.h>
 #include <OgreCamera.h>
 #include <OgreViewport.h>
@@ -11,14 +9,16 @@
 
 #include <iostream>
 
+#include "OgreApp.h"
+
 using namespace Ogre;
 using namespace OgreBites;
 
-MainApplication::MainApplication() : ApplicationContext("Glyptics Portrait Generator")
+OgreApp::OgreApp() : ApplicationContext("Glyptics Portrait Generator")
 {
 }
 
-void MainApplication::setup(void)
+void OgreApp::setup(void)
 {
 	ApplicationContext::setup();
 
@@ -30,12 +30,12 @@ void MainApplication::setup(void)
 	mScene = mRoot->createSceneManager();
 
 	SceneNode* camNode = mScene->getRootSceneNode()->createChildSceneNode();
-	camNode->setPosition(0, 0, 80);
-	camNode->lookAt(Vector3(0, 0, -300), Node::TS_PARENT);
+	camNode->setPosition(0, 0, 0.8);
+	camNode->lookAt(Vector3(0, 0, 0), Node::TS_PARENT);
 
 	Camera* mCamera = mScene->createCamera("MainCam");
 	mCamera->setAutoAspectRatio(true);
-	mCamera->setNearClipDistance(0.5);
+	mCamera->setNearClipDistance(0.1);
 	camNode->attachObject(mCamera);
 
 	getRenderWindow()->addViewport(mCamera);
@@ -44,36 +44,10 @@ void MainApplication::setup(void)
 
 	Light* light = mScene->createLight("MainLight");
 	light->setPosition(20, 80, 50);
-
-	/*ManualObject* triangle = mScene->createManualObject("Triangle");
-
-	triangle->begin("BaseWhiteNoLighting");
-	triangle->position(0, 0.5, 0);
-	triangle->colour(ColourValue::Red);
-	triangle->position(-0.5, -0.5, 0);
-	triangle->colour(ColourValue::Green);
-	triangle->position(0.5, -0.5, 0);
-	triangle->colour(ColourValue::Blue);
-	triangle->end();
-
-	Ogre::SceneNode* triangleNode = mScene->getRootSceneNode()->createChildSceneNode();
-	triangleNode->attachObject(triangle);*/
-
-	Ogre::Entity* ogreEntity = mScene->createEntity("ogrehead.mesh");
-
-	Ogre::SceneNode* ogreNode = mScene->getRootSceneNode()->createChildSceneNode();
-	ogreNode->attachObject(ogreEntity);
 }
 
-void MainApplication::add_mesh(pcl::PolygonMesh mesh) {
-	
-
-
-	/*
+void OgreApp::add_mesh(pcl::PolygonMesh mesh, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
 	ManualObject* man = mScene->createManualObject("profile");
-
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-	pcl::fromPCLPointCloud2(mesh.cloud, *cloud);
 
 	man->estimateVertexCount(cloud->size());
 	man->begin("BaseWhiteNoLighting");
@@ -91,10 +65,9 @@ void MainApplication::add_mesh(pcl::PolygonMesh mesh) {
 
 	SceneNode* profileNode = mScene->getRootSceneNode()->createChildSceneNode();
 	profileNode->attachObject(man);
-	*/
 }
 
-bool MainApplication::keyPressed(const OgreBites::KeyboardEvent& evt)
+bool OgreApp::keyPressed(const OgreBites::KeyboardEvent& evt)
 {
 	if (evt.keysym.sym == OgreBites::SDLK_ESCAPE)
 	{
