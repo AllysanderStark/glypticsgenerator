@@ -15,10 +15,11 @@
 #include <dlib/opencv.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/opencv.hpp>
+#include <boost/format.hpp>
 
 #include <iostream>
 #include <chrono>
-
+#include <string>
 
 #include "helpers.h"
 #include "OgreApp.h"
@@ -114,7 +115,7 @@ int main(int argc, char** argv) try
 
 		// Dlib + OpenCV
 		Mat color(Size(640, 480), CV_8UC3, (void*)color_frame.get_data(), Mat::AUTO_STEP);
-		Mat depth(Size(640, 480), CV_8UC3, (void*)depth_frame.get_data(), Mat::AUTO_STEP);
+		Mat depth(Size(640, 480), CV_8UC3, (void*)colorized_depth.get_data(), Mat::AUTO_STEP);
 
 		cv_image<rgb_pixel> cimg(color);
 		cv_image<rgb_pixel> dimg(depth);
@@ -125,12 +126,25 @@ int main(int argc, char** argv) try
 		for (unsigned long i = 0; i < faces.size(); ++i)
 			shapes.push_back(predictor(cimg, faces[i]));
 
+		// Overlay
 		Mat ov = Mat::zeros(480, 640, CV_8UC3);
 		cv_image<rgb_pixel> overlay(ov);
-
 		dlib_win.clear_overlay();
-		dlib_win.set_image(cimg);
+
 		dlib_win.add_overlay(render_face_detections(shapes));
+		point p;
+		for (auto face : shapes) {
+			for (unsigned long i = 0; i < face.num_parts(); i++) {
+				p = face.part(i);
+				dlib::rectangle rect = dlib::rectangle(p);
+				float z = depth_frame.get_distance(p.x(), p.y());
+				std::string z_label = (boost::format("%1$.2f") % z).str();
+				dlib_win.add_overlay(image_window::overlay_rect(rect, rgb_pixel(255, 0, 0), z_label));
+			}
+		}
+
+		dlib_win.set_image(cimg);
+
 
 		/*
 		glEnable(GL_BLEND);
