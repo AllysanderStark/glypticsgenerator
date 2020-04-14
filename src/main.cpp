@@ -138,6 +138,13 @@ int main(int argc, char** argv) try
 				p = face.part(i);
 				dlib::rectangle rect = dlib::rectangle(p);
 				float z = depth_frame.get_distance(p.x(), p.y());
+				// If there is no depth data for the landmark, try nearby pixels 
+				if (z == 0) {
+					for (int ax = -8; ax <= 8 && z == 0; ax++) {
+						for (int ay = -8; ay <= 8 && z == 0; ay++)
+							z = depth_frame.get_distance(p.x() + ax, p.y() + ay);
+					}
+				}
 				std::string z_label = (boost::format("%1$.2f") % z).str();
 				dlib_win.add_overlay(image_window::overlay_rect(rect, rgb_pixel(255, 0, 0), z_label));
 			}
