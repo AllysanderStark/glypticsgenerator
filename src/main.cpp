@@ -21,23 +21,23 @@
 #include <chrono>
 #include <string>
 
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-#include <CGAL/Polyhedron_3.h>
-#include <CGAL/Surface_mesh_default_triangulation_3.h>
-#include <CGAL/make_surface_mesh.h>
-#include <CGAL/Implicit_surface_3.h>
-#include <CGAL/IO/facets_in_complex_2_to_triangle_mesh.h>
-#include <CGAL/Poisson_reconstruction_function.h>
-#include <CGAL/property_map.h>
-#include <CGAL/IO/read_xyz_points.h>
-#include <CGAL/compute_average_spacing.h>
-#include <CGAL/Polygon_mesh_processing/distance.h>
-#include <boost/iterator/transform_iterator.hpp>
-#include <vector>
-#include <fstream>
-
 #include "helpers.h"
 #include "OgreApp.h"
+
+//eos
+#include <eos/core/Image.hpp>
+#include <eos/core/image/opencv_interop.hpp>
+#include <eos/core/Landmark.hpp>
+#include <eos/core/LandmarkMapper.hpp>
+#include <eos/core/read_pts_landmarks.hpp>
+#include <eos/fitting/fitting.hpp>
+#include <eos/morphablemodel/Blendshape.hpp>
+#include <eos/morphablemodel/MorphableModel.hpp>
+#include <eos/render/draw_utils.hpp>
+#include <eos/render/texture_extraction.hpp>
+#include <eos/cpp17/optional.hpp>
+
+#include <Eigen/Core>
 
 #define MIN_SCAN_DISTANCE 0.3f
 #define MAX_SCAN_DISTANCE 0.5f
@@ -54,23 +54,6 @@ enum class direction
 	to_color
 };
 
-// CGAL Types
-typedef CGAL::Exact_predicates_inexact_constructions_kernel Kernel;
-typedef Kernel::FT FT;
-typedef Kernel::Point_3 cgPoint;
-typedef Kernel::Vector_3 cgVector;
-typedef std::pair<cgPoint, cgVector> Point_with_normal;
-typedef CGAL::First_of_pair_property_map<Point_with_normal> Point_map;
-typedef CGAL::Second_of_pair_property_map<Point_with_normal> Normal_map;
-typedef Kernel::Sphere_3 Sphere;
-typedef std::vector<Point_with_normal> PointList;
-typedef CGAL::Polyhedron_3<Kernel> Polyhedron;
-typedef CGAL::Poisson_reconstruction_function<Kernel> Poisson_reconstruction_function;
-typedef CGAL::Surface_mesh_default_triangulation_3 STr;
-typedef CGAL::Surface_mesh_complex_2_in_triangulation_3<STr> C2t3;
-typedef CGAL::Implicit_surface_3<Kernel, Poisson_reconstruction_function> Surface_3;
-
-int reconstruct_mesh();
 void capture_frame(rs2::pipeline pipe);
 void generate_mesh(PointCloud<PointXYZ>::Ptr cloud);
 void show_mesh();
@@ -83,8 +66,6 @@ OgreApp app;
 frontal_face_detector detector = get_frontal_face_detector();
 shape_predictor predictor;
 
-PointList poisson_points;
-
 int main(int argc, char** argv) try
 {
 	deserialize("C:\\landmarks.dat") >> predictor;
@@ -93,10 +74,10 @@ int main(int argc, char** argv) try
 	begin = std::chrono::steady_clock::now();
 
 	// Create and initialize GUI related objects
-	//window app(1280, 720, "Glyptics Portrait Generator"); // Simple window handling
-	//ImGui_ImplGlfw_Init(app, false);      // ImGui library intializition
+	window app(1280, 720, "Glyptics Portrait Generator"); // Simple window handling
+	ImGui_ImplGlfw_Init(app, false);      // ImGui library intializition
 	rs2::colorizer colorizer;                     // Helper to colorize depth images
-	//texture depth_image, color_image;     // Helpers for rendering images
+	texture depth_image, color_image;     // Helpers for rendering images
 	threshold_filter threshold_filter;	  // Filter for thresholds
 
 	image_window dlib_win;
@@ -147,6 +128,7 @@ int main(int argc, char** argv) try
 
 		auto colorized_depth = colorizer.colorize(filtered);
 
+		
 		// Dlib + OpenCV
 		Mat color(Size(640, 480), CV_8UC3, (void*)color_frame.get_data(), Mat::AUTO_STEP);
 		Mat depth(Size(640, 480), CV_8UC3, (void*)colorized_depth.get_data(), Mat::AUTO_STEP);
@@ -167,7 +149,6 @@ int main(int argc, char** argv) try
 
 		dlib_win.add_overlay(render_face_detections(shapes));
 		point p;
-		poisson_points.clear();
 		for (auto face : shapes) {
 			for (unsigned long i = 0; i < face.num_parts(); i++) {
 				p = face.part(i);
@@ -183,15 +164,11 @@ int main(int argc, char** argv) try
 				}
 				std::string z_label = (boost::format("%1$.2f") % z).str();
 				dlib_win.add_overlay(image_window::overlay_rect(rect, rgb_pixel(255, 0, 0), z_label));
-				auto n = cgVector(p.x(), p.y(), z - 3.0);
-				auto p_new = cgPoint(p.x(), p.y(), z);
-				auto pwn = Point_with_normal(p_new, n);
-				poisson_points.push_back(pwn);
 			}
 		}
 
 		dlib_win.set_image(cimg);
-		return reconstruct_mesh();
+		
 
 		/*
 		glEnable(GL_BLEND);
@@ -244,67 +221,6 @@ catch (const std::exception & e)
 {
 	std::cerr << e.what() << std::endl;
 	return EXIT_FAILURE;
-}
-
-int reconstruct_mesh()
-{
-	// Poisson options
-	FT sm_angle = 20.0; // Min triangle angle in degrees.
-	FT sm_radius = 30; // Max triangle size w.r.t. point set average spacing.
-	FT sm_distance = 0.375; // Surface Approximation error w.r.t. point set average spacing.
-
-	Poisson_reconstruction_function function(poisson_points.begin(), poisson_points.end(), Point_map(), Normal_map());
-
-	// Computes the Poisson indicator function f()
-	// at each vertex of the triangulation.
-	if (!function.compute_implicit_function())
-		return EXIT_FAILURE;
-
-	// Computes average spacing
-	FT average_spacing = CGAL::compute_average_spacing<CGAL::Sequential_tag>
-		(poisson_points, 6 /* knn = 1 ring */,
-			CGAL::parameters::point_map(Point_map()));
-	// Gets one point inside the implicit surface
-	// and computes implicit function bounding sphere radius.
-	cgPoint inner_point = function.get_inner_point();
-	Sphere bsphere = function.bounding_sphere();
-	FT radius = std::sqrt(bsphere.squared_radius());
-	// Defines the implicit surface: requires defining a
-	// conservative bounding sphere centered at inner point.
-	FT sm_sphere_radius = 5.0 * radius;
-	FT sm_dichotomy_error = sm_distance * average_spacing / 1000.0; // Dichotomy error must be << sm_distance
-	Surface_3 surface(function,
-		Sphere(inner_point, sm_sphere_radius*sm_sphere_radius),
-		sm_dichotomy_error / sm_sphere_radius);
-	// Defines surface mesh generation criteria
-	CGAL::Surface_mesh_default_criteria_3<STr> criteria(sm_angle,  // Min triangle angle (degrees)
-		sm_radius*average_spacing,  // Max triangle size
-		sm_distance*average_spacing); // Approximation error
-	// Generates surface mesh with manifold option
-	STr tr; // 3D Delaunay triangulation for surface mesh generation
-	C2t3 c2t3(tr); // 2D complex in 3D Delaunay triangulation
-	CGAL::make_surface_mesh(c2t3,                                 // reconstructed mesh
-		surface,                              // implicit surface
-		criteria,                             // meshing criteria
-		CGAL::Manifold_with_boundary_tag());  // require manifold mesh
-	if (tr.number_of_vertices() == 0)
-		return EXIT_FAILURE;
-	// saves reconstructed surface mesh
-	std::ofstream out("poisson_mesh.off");
-	Polyhedron output_mesh;
-	CGAL::facets_in_complex_2_to_triangle_mesh(c2t3, output_mesh);
-	out << output_mesh;
-	// computes the approximation error of the reconstruction
-	double max_dist =
-		CGAL::Polygon_mesh_processing::approximate_max_distance_to_point_set
-		(output_mesh,
-			CGAL::make_range(boost::make_transform_iterator
-			(poisson_points.begin(), CGAL::Property_map_to_unary_function<Point_map>()),
-				boost::make_transform_iterator
-				(poisson_points.end(), CGAL::Property_map_to_unary_function<Point_map>())),
-			4000);
-	std::cout << "Max distance to point_set: " << max_dist << std::endl;
-	return EXIT_SUCCESS;
 }
 
 void capture_frame(rs2::pipeline pipe)
@@ -363,7 +279,7 @@ void capture_frame(rs2::pipeline pipe)
 	grid.setInputCloud(cloud);
 #if NDEBUG
 	std::cout << "Setting leaf size to 0.001" << std::endl;
-	grid.setLeafSize(0.001f, 0.001f, 0.001f);
+	grid.setLeafSize(0.003f, 0.003f, 0.003f);
 #else
 	std::cout << "Setting leaf size to 0.03" << std::endl;
 	grid.setLeafSize(0.03f, 0.03f, 0.03f);
@@ -391,6 +307,17 @@ void generate_mesh(PointCloud<PointXYZ>::Ptr cloud)
 	ne.setViewPoint(0, 0, -5);
 	ne.compute(*normals);
 	//* normals should not contain the point normals + surface curvatures
+
+	Normal axis = Normal(0, 0, -1);
+
+	//make all normals face the direction towards camera
+	for (int i = 0; i < normals->points.size(); i++) {
+		if (axis.getNormalVector4fMap().dot(normals->points[i].getNormalVector4fMap()) < 0) {
+			normals->points[i].normal_x *= -1;
+			normals->points[i].normal_y *= -1;
+			normals->points[i].normal_z *= -1;
+		}
+	}
 
 	end = std::chrono::steady_clock::now();
 	std::cout << "Normals computed: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
@@ -422,7 +349,8 @@ void generate_mesh(PointCloud<PointXYZ>::Ptr cloud)
 	gp3.setMaximumSurfaceAngle(M_PI / 4); // pi/4 = 45 degrees
 	gp3.setMinimumAngle(M_PI / 18); // pi/18 = 10 degrees
 	gp3.setMaximumAngle(2 * M_PI / 3); // 2pi/3 = 120 degrees
-	gp3.setNormalConsistency(false);
+	gp3.setNormalConsistency(true);
+	gp3.setConsistentVertexOrdering(true);
 
 	// Get result
 	gp3.setInputCloud(cloud_with_normals);

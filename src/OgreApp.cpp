@@ -30,7 +30,7 @@ void OgreApp::setup(void)
 	mScene = mRoot->createSceneManager();
 
 	SceneNode* camNode = mScene->getRootSceneNode()->createChildSceneNode();
-	camNode->setPosition(0, 0, 0.8);
+	camNode->setPosition(0, 0, -0.3);
 	camNode->lookAt(Vector3(0, 0, 0), Node::TS_PARENT);
 
 	Camera* mCamera = mScene->createCamera("MainCam");
