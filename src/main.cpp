@@ -8,15 +8,6 @@
 #include <librealsense2/rs.hpp>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
-#include <dlib/image_processing/frontal_face_detector.h>
-#include <dlib/image_processing/render_face_detections.h>
-#include <dlib/image_processing.h>
-#include <dlib/gui_widgets.h>
-#include <dlib/opencv.h>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/opencv.hpp>
-#include <boost/format.hpp>
-#include <boost/optional.hpp>
 
 #include <iostream>
 #include <chrono>
@@ -24,19 +15,8 @@
 
 #include "helpers.h"
 #include "OgreApp.h"
-
-//eos
-#include <eos/core/Landmark.hpp>
-#include <eos/core/LandmarkMapper.hpp>
-#include <eos/morphablemodel/MorphableModel.hpp>
-#include <eos/morphablemodel/Blendshape.hpp>
-#include <eos/fitting/fitting.hpp>
-#include <eos/fitting/nonlinear_camera_estimation.hpp>
-#include <eos/render/detail/render_detail.hpp>
-#include <eos/render/utils.hpp>
-#include <eos/cpp17/optional.hpp>
-
-#include <Eigen/Core>
+#include "FacialDetector.h"
+#include "FacialMorpher.h"
 
 // distances for RS2 camera colorizer
 #define MIN_SCAN_DISTANCE 0.3f
@@ -44,14 +24,10 @@
 
 using namespace pcl;
 using namespace rs2;
-using namespace dlib;
-using namespace cv;
 
 // function headers
-void morph_face(dlib::full_object_detection face, Mat image);
 void capture_frame(rs2::pipeline pipe);
 void generate_mesh(PointCloud<PointXYZ>::Ptr cloud);
-void show_mesh();
 
 // time measurement
 std::chrono::steady_clock::time_point begin;
@@ -65,28 +41,24 @@ enum class direction
 };
 
 // Ogre
-OgreApp app;
-
-// dlib
-frontal_face_detector detector = get_frontal_face_detector();
-shape_predictor predictor;
-
-// eos
-eos::morphablemodel::MorphableModel morphable_model;
-eos::core::LandmarkMapper landmark_mapper;
-eos::morphablemodel::Blendshapes blendshapes;
-eos::fitting::ModelContour model_contour;
-eos::fitting::ContourLandmarks ibug_contour;
-eos::morphablemodel::EdgeTopology edge_topology;
+OgreApp ogre_app;
 
 int main(int argc, char** argv) try
 {
+	// Instantiate modules
+	FacialDetector detector;
+	FacialMorpher morpher;
+
+	// Init Ogre app
+	// ogre_app.initApp();
+	// ogre_app.getRoot()->startRendering();
+
 	// Begin time measurement!
 	begin = std::chrono::steady_clock::now();
 
 	// RS2: Create and initialize GUI related objects
-	window app(1280, 720, "Glyptics Portrait Generator"); // Simple window handling
-	ImGui_ImplGlfw_Init(app, false);      // ImGui library intializition
+	//window app(1280, 720, "Glyptics Portrait Generator"); // Simple window handling
+	//ImGui_ImplGlfw_Init(app, false);      // ImGui library intializition
 	rs2::colorizer colorizer;             // Helper to colorize depth images
 	texture depth_image, color_image;     // Helpers for rendering images
 	threshold_filter threshold_filter;	  // Filter for thresholds
@@ -112,19 +84,8 @@ int main(int argc, char** argv) try
 	threshold_filter.set_option(RS2_OPTION_MAX_DISTANCE, MAX_SCAN_DISTANCE);
 	threshold_filter.set_option(RS2_OPTION_MIN_DISTANCE, MIN_SCAN_DISTANCE);
 
-	// eos: Instantiating models
-	morphable_model = eos::morphablemodel::load_model("res/sfm_shape_3448.bin");
-	landmark_mapper = eos::core::LandmarkMapper("res/ibug_to_sfm.txt");
-	blendshapes = eos::morphablemodel::load_blendshapes("res/expression_blendshapes_3448.bin");
-	model_contour = eos::fitting::ModelContour::load("res/sfm_model_contours.json");
-	ibug_contour = eos::fitting::ContourLandmarks::load("res/ibug_to_sfm.txt");
-	edge_topology = eos::morphablemodel::load_edge_topology("res/sfm_3448_edge_topology.json");
-
-	// dlib: create a window and deserialize landmark data
-	deserialize("res/landmarks.dat") >> predictor;
-	image_window dlib_win;
-
-	while (!dlib_win.is_closed()) 
+	int i = 0;
+	while (i < 10) 
 	{
 		// RS2: Block the application until a frameset is available
 		frameset frameset = pipe.wait_for_frames();
@@ -147,52 +108,12 @@ int main(int argc, char** argv) try
 
 		auto colorized_depth = colorizer.colorize(filtered);
 
-		
-		// Dlib + OpenCV
-		Mat color(Size(640, 480), CV_8UC3, (void*)color_frame.get_data(), Mat::AUTO_STEP);
-		Mat depth(Size(640, 480), CV_8UC3, (void*)colorized_depth.get_data(), Mat::AUTO_STEP);
+		auto face = detector.detect(color_frame, depth_frame);
+		auto mesh = morpher.morph(face, color_frame);
 
-		cv_image<rgb_pixel> cimg(color);
-		cv_image<rgb_pixel> dimg(depth);
-
-		// Detection
-		std::vector<dlib::rectangle> faces = detector(cimg);
-		std::vector<full_object_detection> shapes;
-		for (unsigned long i = 0; i < faces.size(); ++i)
-			shapes.push_back(predictor(cimg, faces[i]));
-
-		// Overlay
-		Mat ov = Mat::zeros(480, 640, CV_8UC3);
-		cv_image<rgb_pixel> overlay(ov);
-		dlib_win.clear_overlay();
-
-		dlib_win.add_overlay(render_face_detections(shapes));
-		point p;
-		for (auto face : shapes) {
-			for (unsigned long i = 0; i < face.num_parts(); i++) {
-				p = face.part(i);
-				dlib::rectangle rect = dlib::rectangle(p);
-				float z = depth_frame.get_distance(p.x(), p.y());
-				// If there is no depth data for the landmark, try nearby pixels 
-				if (z == 0) {
-					for (int ax = -8; ax <= 8 && z == 0; ax++) {
-						for (int ay = -8; ay <= 8 && z == 0; ay++) {
-							z = depth_frame.get_distance(p.x() + ax, p.y() + ay);
-						}
-					}
-				}
-				std::string z_label = (boost::format("%1$.2f") % z).str();
-				dlib_win.add_overlay(image_window::overlay_rect(rect, rgb_pixel(255, 0, 0), z_label));
-
-				// eos: use predicted shape for morphing
-				morph_face(face, color);
-			}
-		}
-
-		dlib_win.set_image(cimg);
-
-		//system("pause");
-		
+		i++;
+		//return EXIT_SUCCESS;
+		//ogre_app.add_or_update_mesh(mesh);
 
 		/*
 		glEnable(GL_BLEND);
@@ -391,52 +312,6 @@ void generate_mesh(PointCloud<PointXYZ>::Ptr cloud)
 	end = std::chrono::steady_clock::now();
 	std::cout << "Saved: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms elapsed" << std::endl;
 
-	app.initApp();
-	app.add_mesh(triangles, cloud);
-	show_mesh();
-}
-
-void show_mesh() {
-	app.getRoot()->startRendering();
-	app.closeApp();
-}
-
-void morph_face(dlib::full_object_detection face, Mat image) {
-	std::vector<Eigen::Vector4f> model_points; // 3d morphable model points
-	std::vector<int> vertex_indices;
-	std::vector<Eigen::Vector2f> image_points; // corresponding 2d coordinates
-
-	for (int i = 0; i < face.num_parts(); i++) {
-		auto p = face.part(i);
-
-		auto mapped_name = landmark_mapper.convert(std::to_string(i + 1));
-		if (!mapped_name)
-		{
-			continue;
-		}
-
-		int vertex_idx = std::stoi(mapped_name.value());
-		auto vertex = morphable_model.get_shape_model().get_mean_at_point(vertex_idx);
-		model_points.emplace_back(Eigen::Vector4f(vertex.x(), vertex.y(), vertex.z(), 1.0f));
-		vertex_indices.emplace_back(vertex_idx);
-		image_points.emplace_back(p.x(), p.y());
-	}
-
-	eos::fitting::ScaledOrthoProjectionParameters pose = eos::fitting::estimate_orthographic_projection_linear(image_points, model_points, false, image.rows);
-	eos::fitting::RenderingParameters rendering_params(pose, image.cols, image.rows);
-
-	const float yaw_angle = glm::degrees(glm::yaw(rendering_params.get_rotation()));
-
-	const Eigen::Matrix<float, 3, 4> affine_from_ortho = eos::fitting::get_3x4_affine_camera_matrix(rendering_params, image.cols, image.rows);
-
-	const std::vector<float> fitted_coeffs = eos::fitting::fit_shape_to_landmarks_linear(morphable_model.get_shape_model(), affine_from_ortho, image_points, vertex_indices);
-
-	const eos::core::Mesh mesh = morphable_model.draw_sample(fitted_coeffs, std::vector<float>());
-
-	// Save the mesh
-	eos::core::write_obj(mesh, "morph.obj");
-
-	app.initApp();
-	app.add_mesh(mesh);
-	show_mesh();
+	ogre_app.initApp();
+	ogre_app.add_mesh(triangles, cloud);
 }
