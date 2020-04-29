@@ -10,6 +10,8 @@
 #include <pcl/point_types.h>
 #include <pcl/conversions.h>
 
+#include <eos/core/Mesh.hpp>
+
 class OgreApp : public OgreBites::ApplicationContext, public OgreBites::InputListener
 {
 public:
@@ -19,6 +21,7 @@ public:
 
 	void setup(void);
 	void add_mesh(pcl::PolygonMesh mesh, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
+	void OgreApp::add_mesh(eos::core::Mesh);
 
 private:
 	bool keyPressed(const OgreBites::KeyboardEvent& evt);

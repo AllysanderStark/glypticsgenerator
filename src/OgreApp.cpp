@@ -30,7 +30,7 @@ void OgreApp::setup(void)
 	mScene = mRoot->createSceneManager();
 
 	SceneNode* camNode = mScene->getRootSceneNode()->createChildSceneNode();
-	camNode->setPosition(0, 0, -0.3);
+	camNode->setPosition(0, 0, -100);
 	camNode->lookAt(Vector3(0, 0, 0), Node::TS_PARENT);
 
 	Camera* mCamera = mScene->createCamera("MainCam");
@@ -60,6 +60,26 @@ void OgreApp::add_mesh(pcl::PolygonMesh mesh, pcl::PointCloud<pcl::PointXYZ>::Pt
 	for (auto t : mesh.polygons) {
 		auto v = t.vertices;
 		man->triangle(v[0], v[1], v[2]);
+	}
+	man->end();
+
+	SceneNode* profileNode = mScene->getRootSceneNode()->createChildSceneNode();
+	profileNode->attachObject(man);
+}
+
+void OgreApp::add_mesh(eos::core::Mesh mesh) {
+	ManualObject* man = mScene->createManualObject("profile");
+
+	man->estimateVertexCount(mesh.vertices.size());
+	man->begin("BaseWhiteNoLighting");
+
+	for (auto v : mesh.vertices) {
+		man->position(v[0], v[1], v[2]);
+		man->colour(ColourValue::White);
+	}
+
+	for (auto t : mesh.tvi) {
+		man->triangle(t[0], t[1], t[2]);
 	}
 	man->end();
 
