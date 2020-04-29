@@ -21,7 +21,9 @@ public:
 
 	void setup(void);
 	void add_mesh(pcl::PolygonMesh mesh, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
-	void OgreApp::add_mesh(eos::core::Mesh);
+	void add_mesh(eos::core::Mesh mesh);
+	void update_mesh(eos::core::Mesh mesh);
+	void add_or_update_mesh(eos::core::Mesh mesh);
 
 private:
 	bool keyPressed(const OgreBites::KeyboardEvent& evt);

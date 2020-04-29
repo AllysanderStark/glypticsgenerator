@@ -14,7 +14,7 @@
 using namespace Ogre;
 using namespace OgreBites;
 
-OgreApp::OgreApp() : ApplicationContext("Glyptics Portrait Generator")
+OgreApp::OgreApp() : ApplicationContext("Glyptics Portrait Generator Ogre")
 {
 }
 
@@ -85,6 +85,25 @@ void OgreApp::add_mesh(eos::core::Mesh mesh) {
 
 	SceneNode* profileNode = mScene->getRootSceneNode()->createChildSceneNode();
 	profileNode->attachObject(man);
+}
+
+void OgreApp::update_mesh(eos::core::Mesh mesh) {
+	ManualObject* man = mScene->getManualObject("profile");
+
+	man->beginUpdate(0);
+
+	for (auto v : mesh.vertices) {
+		man->position(v[0], v[1], v[2]);
+	}
+}
+
+void OgreApp::add_or_update_mesh(eos::core::Mesh mesh) {
+	if (!mScene->hasManualObject("profile")) {
+		add_mesh(mesh);
+	}
+	else {
+		update_mesh(mesh);
+	}
 }
 
 bool OgreApp::keyPressed(const OgreBites::KeyboardEvent& evt)
