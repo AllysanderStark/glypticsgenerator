@@ -50,8 +50,7 @@ int main(int argc, char** argv) try
 	FacialMorpher morpher;
 
 	// Init Ogre app
-	// ogre_app.initApp();
-	// ogre_app.getRoot()->startRendering();
+	ogre_app.initApp();
 
 	// Begin time measurement!
 	begin = std::chrono::steady_clock::now();
@@ -85,6 +84,7 @@ int main(int argc, char** argv) try
 	threshold_filter.set_option(RS2_OPTION_MIN_DISTANCE, MIN_SCAN_DISTANCE);
 
 	int i = 0;
+	eos::core::Mesh mesh;
 	while (i < 10) 
 	{
 		// RS2: Block the application until a frameset is available
@@ -109,11 +109,10 @@ int main(int argc, char** argv) try
 		auto colorized_depth = colorizer.colorize(filtered);
 
 		auto face = detector.detect(color_frame, depth_frame);
-		auto mesh = morpher.morph(face, color_frame);
+		mesh = morpher.morph(face, color_frame);
 
 		i++;
 		//return EXIT_SUCCESS;
-		//ogre_app.add_or_update_mesh(mesh);
 
 		/*
 		glEnable(GL_BLEND);
@@ -155,6 +154,8 @@ int main(int argc, char** argv) try
 		ImGui::Render();
 		*/
 	}
+	ogre_app.add_or_update_mesh(mesh);
+	ogre_app.getRoot()->startRendering();
 	return EXIT_SUCCESS;
 }
 catch (const rs2::error & e)

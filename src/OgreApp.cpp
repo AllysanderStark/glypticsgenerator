@@ -30,7 +30,7 @@ void OgreApp::setup(void)
 	mScene = mRoot->createSceneManager();
 
 	SceneNode* camNode = mScene->getRootSceneNode()->createChildSceneNode();
-	camNode->setPosition(0, 0, -100);
+	camNode->setPosition(500, 0, 0);
 	camNode->lookAt(Vector3(0, 0, 0), Node::TS_PARENT);
 
 	Camera* mCamera = mScene->createCamera("MainCam");
@@ -50,11 +50,11 @@ void OgreApp::add_mesh(pcl::PolygonMesh mesh, pcl::PointCloud<pcl::PointXYZ>::Pt
 	ManualObject* man = mScene->createManualObject("profile");
 
 	man->estimateVertexCount(cloud->size());
-	man->begin("BaseWhiteNoLighting");
+	man->begin("Ogre/Compositor/GlassPass");
 
 	for (auto p: cloud->points) {
-		man->position(p.x, p.y, p.z);
-		man->colour(ColourValue::White);
+		man->position(p.x, p.y, p.z + 75.0f);
+		//man->colour(ColourValue::White);
 	}
 
 	for (auto t : mesh.polygons) {
@@ -71,11 +71,11 @@ void OgreApp::add_mesh(eos::core::Mesh mesh) {
 	ManualObject* man = mScene->createManualObject("profile");
 
 	man->estimateVertexCount(mesh.vertices.size());
-	man->begin("BaseWhiteNoLighting");
+	man->begin("Ogre/Compositor/GlassPass");
 
 	for (auto v : mesh.vertices) {
-		man->position(v[0], v[1], v[2]);
-		man->colour(ColourValue::White);
+		man->position(v[0], v[1], v[2] + 75.0f);
+		//man->colour(ColourValue::White);
 	}
 
 	for (auto t : mesh.tvi) {
