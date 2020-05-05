@@ -1,16 +1,26 @@
 #include "FacialMorpher.h"
 
-FacialMorpher::FacialMorpher() {
-	// Instantiating models
-	morphable_model = eos::morphablemodel::load_model("res/sfm_shape_3448.bin");
-	landmark_mapper = eos::core::LandmarkMapper("res/ibug_to_sfm.txt");
-	blendshapes = eos::morphablemodel::load_blendshapes("res/expression_blendshapes_3448.bin");
-	model_contour = eos::fitting::ModelContour::load("res/sfm_model_contours.json");
-	ibug_contour = eos::fitting::ContourLandmarks::load("res/ibug_to_sfm.txt");
-	edge_topology = eos::morphablemodel::load_edge_topology("res/sfm_3448_edge_topology.json");
+FacialMorpher::FacialMorpher(ModelType type) {
+	// Instantiating models based on type
+	switch (type) {
+	case SFM:
+		morphable_model = eos::morphablemodel::load_model("res/sfm_shape_3448.bin");
+		landmark_mapper = eos::core::LandmarkMapper("res/ibug_to_sfm.txt");
+		model_contour = eos::fitting::ModelContour::load("res/sfm_model_contours.json");
+		ibug_contour = eos::fitting::ContourLandmarks::load("res/ibug_to_sfm.txt");
+		edge_topology = eos::morphablemodel::load_edge_topology("res/sfm_3448_edge_topology.json");
+		break;
+	case BFM:
+		morphable_model = eos::morphablemodel::load_model("res/bfm2017-1_bfm_nomouth.bin");
+		landmark_mapper = eos::core::LandmarkMapper("res/ibug_to_bfm2017-1_bfm_nomouth.txt");
+		model_contour = eos::fitting::ModelContour::load("res/bfm2017-1_bfm_nomouth_model_contours.json");
+		ibug_contour = eos::fitting::ContourLandmarks::load("res/ibug_to_bfm2017-1_bfm_nomouth.txt");
+		edge_topology = eos::morphablemodel::load_edge_topology("res/bfm2017-1_bfm_nomouth_edge_topology.json");
+		break;
+	}
 }
 
-core::Mesh FacialMorpher::morph(dlib::full_object_detection face, rs2::video_frame color_frame) {
+eos::core::Mesh FacialMorpher::morph(dlib::full_object_detection face, rs2::video_frame color_frame) {
 	// Create OpenCV's Mat object from RealSense color frame
 	cv::Mat image(cv::Size(640, 480), CV_8UC3, (void*)color_frame.get_data(), cv::Mat::AUTO_STEP);
 

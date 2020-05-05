@@ -12,18 +12,20 @@
 #include <dlib/image_processing/full_object_detection.h>
 #include <librealsense2/rs.hpp>
 
-using namespace eos;
+enum ModelType {
+	SFM, BFM
+};
 
 class FacialMorpher {
 public:
-	FacialMorpher();
-	core::Mesh morph(dlib::full_object_detection face, rs2::video_frame color_frame);
+	FacialMorpher(ModelType type);
+	eos::core::Mesh morph(dlib::full_object_detection face, rs2::video_frame color_frame);
 
 private:
-	morphablemodel::MorphableModel morphable_model;
-	core::LandmarkMapper landmark_mapper;
-	morphablemodel::Blendshapes blendshapes;
-	fitting::ModelContour model_contour;
-	fitting::ContourLandmarks ibug_contour;
-	morphablemodel::EdgeTopology edge_topology;
+	eos::morphablemodel::MorphableModel morphable_model;
+	eos::core::LandmarkMapper landmark_mapper;
+	eos::morphablemodel::Blendshapes blendshapes;
+	eos::fitting::ModelContour model_contour;
+	eos::fitting::ContourLandmarks ibug_contour;
+	eos::morphablemodel::EdgeTopology edge_topology;
 };

@@ -47,10 +47,10 @@ int main(int argc, char** argv) try
 {
 	// Instantiate modules
 	FacialDetector detector;
-	FacialMorpher morpher;
+	FacialMorpher morpher(SFM);
 
 	// Init Ogre app
-	ogre_app.initApp();
+	//ogre_app.initApp();
 
 	// Begin time measurement!
 	begin = std::chrono::steady_clock::now();
@@ -85,7 +85,7 @@ int main(int argc, char** argv) try
 
 	int i = 0;
 	eos::core::Mesh mesh;
-	while (i < 10) 
+	while (i < 5) 
 	{
 		// RS2: Block the application until a frameset is available
 		frameset frameset = pipe.wait_for_frames();
@@ -154,8 +154,8 @@ int main(int argc, char** argv) try
 		ImGui::Render();
 		*/
 	}
-	ogre_app.add_or_update_mesh(mesh);
-	ogre_app.getRoot()->startRendering();
+	//ogre_app.add_or_update_mesh(mesh);
+	//ogre_app.getRoot()->startRendering();
 	return EXIT_SUCCESS;
 }
 catch (const rs2::error & e)
