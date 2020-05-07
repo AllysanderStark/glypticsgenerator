@@ -5,7 +5,7 @@ using namespace dlib;
 using namespace cv;
 
 FacialDetector::FacialDetector() {
-	win.set_title("Glyptics Portrait Generator dlib");
+	win.set_title("Glyptics Portrait Generator: dlib");
 	win.show();
 	detector = get_frontal_face_detector();
 	deserialize("res/landmarks.dat") >> predictor;
@@ -16,8 +16,8 @@ full_object_detection FacialDetector::detect(rs2::video_frame color_frame, rs2::
 	Mat color(Size(640, 480), CV_8UC3, (void*)color_frame.get_data(), Mat::AUTO_STEP);
 	Mat depth(Size(640, 480), CV_8UC3, (void*)depth_frame.get_data(), Mat::AUTO_STEP);
 
-	cv_image<rgb_pixel> cimg(color);
-	cv_image<rgb_pixel> dimg(depth);
+	cv_image<bgr_pixel> cimg(color);
+	cv_image<bgr_pixel> dimg(depth);
 
 	// Detection
 	std::vector<dlib::rectangle> faces = detector(cimg);
@@ -27,7 +27,7 @@ full_object_detection FacialDetector::detect(rs2::video_frame color_frame, rs2::
 
 	// Overlay
 	Mat ov = Mat::zeros(480, 640, CV_8UC3);
-	cv_image<rgb_pixel> overlay(ov);
+	cv_image<bgr_pixel> overlay(ov);
 	win.clear_overlay();
 
 	win.add_overlay(render_face_detections(shapes));

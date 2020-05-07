@@ -354,3 +354,6 @@ MigrationBackup/
 *.vtk
 *.off
 res/
+morph.png
+textured_morph.isomap.png
+textured_morph.mtl
