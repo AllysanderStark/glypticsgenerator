@@ -11,6 +11,8 @@
 
 #include "OgreApp.h"
 
+#define MATERIAL "BaseWhiteNoLighting"
+
 using namespace Ogre;
 using namespace OgreBites;
 
@@ -30,8 +32,8 @@ void OgreApp::setup(void)
 	mScene = mRoot->createSceneManager();
 
 	SceneNode* camNode = mScene->getRootSceneNode()->createChildSceneNode();
-	camNode->setPosition(500, 0, 0);
-	camNode->lookAt(Vector3(0, 0, 0), Node::TS_PARENT);
+	camNode->setPosition(700, 0, -75.0);
+	camNode->lookAt(Vector3(0, 0, -75.0), Node::TS_PARENT);
 
 	Camera* mCamera = mScene->createCamera("MainCam");
 	mCamera->setAutoAspectRatio(true);
@@ -50,10 +52,10 @@ void OgreApp::add_mesh(pcl::PolygonMesh mesh, pcl::PointCloud<pcl::PointXYZ>::Pt
 	ManualObject* man = mScene->createManualObject("profile");
 
 	man->estimateVertexCount(cloud->size());
-	man->begin("Ogre/Compositor/GlassPass");
+	man->begin(MATERIAL);
 
 	for (auto p: cloud->points) {
-		man->position(p.x, p.y, p.z + 75.0f);
+		man->position(p.x, p.y, p.z);
 		//man->colour(ColourValue::White);
 	}
 
@@ -71,10 +73,10 @@ void OgreApp::add_mesh(eos::core::Mesh mesh) {
 	ManualObject* man = mScene->createManualObject("profile");
 
 	man->estimateVertexCount(mesh.vertices.size());
-	man->begin("Ogre/Compositor/GlassPass");
+	man->begin(MATERIAL);
 
 	for (auto v : mesh.vertices) {
-		man->position(v[0], v[1], v[2] + 75.0f);
+		man->position(v[0], v[1], v[2]);
 		//man->colour(ColourValue::White);
 	}
 
@@ -85,6 +87,14 @@ void OgreApp::add_mesh(eos::core::Mesh mesh) {
 
 	SceneNode* profileNode = mScene->getRootSceneNode()->createChildSceneNode();
 	profileNode->attachObject(man);
+
+	// Adding the rest of the head
+	Ogre::Entity* headEntity = mScene->createEntity("head.mesh");
+
+	Ogre::SceneNode* headNode = mScene->getRootSceneNode()->createChildSceneNode();
+	headEntity->setMaterialName("BaseWhiteNoLighting");
+	headNode->attachObject(headEntity);
+
 }
 
 void OgreApp::update_mesh(eos::core::Mesh mesh) {

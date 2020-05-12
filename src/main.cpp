@@ -50,7 +50,7 @@ int main(int argc, char** argv) try
 	FacialMorpher morpher(SFM);
 
 	// Init Ogre app
-	//ogre_app.initApp();
+	ogre_app.initApp();
 
 	// Begin time measurement!
 	begin = std::chrono::steady_clock::now();
@@ -154,8 +154,8 @@ int main(int argc, char** argv) try
 		ImGui::Render();
 		*/
 	}
-	//ogre_app.add_or_update_mesh(mesh);
-	//ogre_app.getRoot()->startRendering();
+	ogre_app.add_or_update_mesh(mesh);
+	ogre_app.getRoot()->startRendering();
 	return EXIT_SUCCESS;
 }
 catch (const rs2::error & e)
