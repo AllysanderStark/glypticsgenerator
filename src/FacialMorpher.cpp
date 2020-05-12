@@ -60,7 +60,7 @@ core::Mesh FacialMorpher::morph(dlib::full_object_detection face, rs2::video_fra
 
 		const Eigen::Matrix<float, 3, 4> affine_from_ortho = eos::fitting::get_3x4_affine_camera_matrix(rendering_params, image.cols, image.rows);
 
-		const std::vector<float> fitted_coeffs = eos::fitting::fit_shape_to_landmarks_linear(morphable_model.get_shape_model(), affine_from_ortho, image_points, vertex_indices);
+		const std::vector<float> fitted_coeffs = eos::fitting::fit_shape_to_landmarks_linear(morphable_model.get_shape_model(), affine_from_ortho, image_points, vertex_indices, Eigen::VectorXf(), 0.5f);
 
 		mesh = morphable_model.draw_sample(fitted_coeffs, std::vector<float>());
 	}
@@ -90,7 +90,7 @@ core::Mesh FacialMorpher::morph(dlib::full_object_detection face, rs2::video_fra
 
 		std::tie(mesh, rendering_params) = fitting::fit_shape_and_pose(
 			morphable_model_with_expressions, landmarks, landmark_mapper, image.cols, image.rows, edge_topology,
-			ibug_contour, model_contour, 5, cpp17::nullopt, 30.0f);
+			ibug_contour, model_contour, 5, cpp17::nullopt, 5.0f);
 	}
 
 	// Extract the texture from the image using given mesh and camera parameters:
