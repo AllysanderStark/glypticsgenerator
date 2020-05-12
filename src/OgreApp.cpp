@@ -76,7 +76,7 @@ void OgreApp::add_mesh(eos::core::Mesh mesh) {
 	man->begin(MATERIAL);
 
 	for (auto v : mesh.vertices) {
-		man->position(v[0], v[1], v[2]);
+		man->position(v[0], v[1] + 5.0f, v[2] - 5.0f);
 		//man->colour(ColourValue::White);
 	}
 
