@@ -17,7 +17,6 @@
 #include "opencv2/imgproc/imgproc.hpp"
 
 #include <dlib/image_processing/full_object_detection.h>
-#include <librealsense2/rs.hpp>
 
 enum ModelType {
 	SFM, BFM
@@ -26,7 +25,7 @@ enum ModelType {
 class FacialMorpher {
 public:
 	FacialMorpher(ModelType type);
-	eos::core::Mesh morph(dlib::full_object_detection face, rs2::video_frame color_frame);
+	eos::core::Mesh morph(dlib::full_object_detection face, cv::Mat image);
 
 private:
 	ModelType type;

@@ -25,10 +25,7 @@ FacialMorpher::FacialMorpher(ModelType type) {
 	}
 }
 
-core::Mesh FacialMorpher::morph(dlib::full_object_detection face, rs2::video_frame color_frame) {
-	// Create OpenCV's Mat object from RealSense color frame
-	cv::Mat image(cv::Size(640, 480), CV_8UC3, (void*)color_frame.get_data(), cv::Mat::AUTO_STEP);
-
+core::Mesh FacialMorpher::morph(dlib::full_object_detection face, cv::Mat image) {
 	std::vector<Eigen::Vector4f> model_points; // 3d morphable model points
 	std::vector<int> vertex_indices;
 	std::vector<Eigen::Vector2f> image_points; // corresponding 2d coordinates

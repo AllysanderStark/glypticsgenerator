@@ -10,11 +10,13 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\FacialDetector.cpp" />
     <ClCompile Include="src\FacialMorpher.cpp" />
+    <ClCompile Include="src\FrameCapturer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\helpers.h" />
     <ClInclude Include="src\OgreApp.h" />
     <ClInclude Include="src\FacialDetector.h" />
     <ClInclude Include="src\FacialMorpher.h" />
+    <ClInclude Include="src\FrameCapturer.h" />
   </ItemGroup>
 </Project>

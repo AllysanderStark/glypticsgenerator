@@ -8,17 +8,16 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/opencv.hpp>
 #include <librealsense2/rs.hpp>
-
-using namespace dlib;
+#include <eos/cpp17/optional.hpp>
 
 class FacialDetector {
 public:
-	image_window win;
+	dlib::image_window win;
 
 	FacialDetector();
-	full_object_detection detect(rs2::video_frame color_frame, rs2::depth_frame depth_frame);
+	dlib::full_object_detection detect(std::pair<cv::Mat, eos::cpp17::optional<rs2::depth_frame>> data);
 
 private:
-	frontal_face_detector detector;
-	shape_predictor predictor;
+	dlib::frontal_face_detector detector;
+	dlib::shape_predictor predictor;
 };

@@ -21,12 +21,14 @@
   <ItemGroup>
     <ClCompile Include="src\FacialDetector.cpp" />
     <ClCompile Include="src\FacialMorpher.cpp" />
+    <ClCompile Include="src\FrameCapturer.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\OgreApp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\FacialDetector.h" />
     <ClInclude Include="src\FacialMorpher.h" />
+    <ClInclude Include="src\FrameCapturer.h" />
     <ClInclude Include="src\helpers.h" />
     <ClInclude Include="src\OgreApp.h" />
   </ItemGroup>

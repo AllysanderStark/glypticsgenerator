@@ -11,13 +11,10 @@ FacialDetector::FacialDetector() {
 	deserialize("res/landmarks.dat") >> predictor;
 }
 
-full_object_detection FacialDetector::detect(rs2::video_frame color_frame, rs2::depth_frame depth_frame) {
-	// Dlib + OpenCV
-	Mat color(Size(640, 480), CV_8UC3, (void*)color_frame.get_data(), Mat::AUTO_STEP);
-	Mat depth(Size(640, 480), CV_8UC3, (void*)depth_frame.get_data(), Mat::AUTO_STEP);
-
-	cv_image<bgr_pixel> cimg(color);
-	cv_image<bgr_pixel> dimg(depth);
+full_object_detection FacialDetector::detect(std::pair<cv::Mat, eos::cpp17::optional<rs2::depth_frame>> data) {
+	// Data extraction
+	cv_image<bgr_pixel> cimg(data.first);
+	bool hasDepth = data.second.has_value();
 
 	// Detection
 	std::vector<dlib::rectangle> faces = detector(cimg);
@@ -36,17 +33,22 @@ full_object_detection FacialDetector::detect(rs2::video_frame color_frame, rs2::
 	for (unsigned long i = 0; i < face.num_parts(); i++) {
 		p = face.part(i);
 		dlib::rectangle rect = dlib::rectangle(p);
-		float z = depth_frame.get_distance(p.x(), p.y());
-		// If there is no depth data for the landmark, try nearby pixels 
-		if (z == 0) {
-			for (int ax = -8; ax <= 8 && z == 0; ax++) {
-				for (int ay = -8; ay <= 8 && z == 0; ay++) {
-					z = depth_frame.get_distance(p.x() + ax, p.y() + ay);
+		// Add depth labels if available
+		if (hasDepth) {
+			auto depth = data.second.value();
+			float z = depth.get_distance(p.x(), p.y());
+
+			// If there is no depth data for the landmark, try nearby pixels 
+			if (z == 0) {
+				for (int ax = -8; ax <= 8 && z == 0; ax++) {
+					for (int ay = -8; ay <= 8 && z == 0; ay++) {
+						z = depth.get_distance(p.x() + ax, p.y() + ay);
+					}
 				}
 			}
+			std::string z_label = (boost::format("%1$.2f") % z).str();
+			win.add_overlay(image_window::overlay_rect(rect, rgb_pixel(255, 0, 0), z_label));
 		}
-		std::string z_label = (boost::format("%1$.2f") % z).str();
-		win.add_overlay(image_window::overlay_rect(rect, rgb_pixel(255, 0, 0), z_label));
 	}
 
 	win.set_image(cimg);
