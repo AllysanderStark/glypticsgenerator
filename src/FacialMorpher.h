@@ -30,10 +30,10 @@ public:
 private:
 	ModelType type;
 
-	eos::morphablemodel::MorphableModel morphable_model;
-	eos::core::LandmarkMapper landmark_mapper;
+	eos::morphablemodel::MorphableModel morphableModel;
+	eos::core::LandmarkMapper landmarkMapper;
 	eos::morphablemodel::Blendshapes blendshapes;
-	eos::fitting::ModelContour model_contour;
-	eos::fitting::ContourLandmarks ibug_contour;
-	eos::morphablemodel::EdgeTopology edge_topology;
+	eos::fitting::ModelContour modelContour;
+	eos::fitting::ContourLandmarks ibugContour;
+	eos::morphablemodel::EdgeTopology edgeTopology;
 };

@@ -46,58 +46,49 @@ void OgreApp::setup(void)
 
 	Light* light = mScene->createLight("MainLight");
 	light->setPosition(20, 80, 50);
+
+	// For HLMS shading
+	hlmsManager = new HlmsManager(mScene, "General");
 }
 
-void OgreApp::add_mesh(pcl::PolygonMesh mesh, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
-	ManualObject* man = mScene->createManualObject("profile");
-
-	man->estimateVertexCount(cloud->size());
-	man->begin(MATERIAL);
-
-	for (auto p: cloud->points) {
-		man->position(p.x, p.y, p.z);
-		//man->colour(ColourValue::White);
-	}
-
-	for (auto t : mesh.polygons) {
-		auto v = t.vertices;
-		man->triangle(v[0], v[1], v[2]);
-	}
-	man->end();
-
-	SceneNode* profileNode = mScene->getRootSceneNode()->createChildSceneNode();
-	profileNode->attachObject(man);
-}
-
-void OgreApp::add_mesh(eos::core::Mesh mesh) {
+void OgreApp::addMesh(eos::core::Mesh mesh) {
 	ManualObject* man = mScene->createManualObject("profile");
 
 	man->estimateVertexCount(mesh.vertices.size());
-	man->begin(MATERIAL);
+	man->begin("BaseWhite");
 
 	for (auto v : mesh.vertices) {
 		man->position(v[0], v[1] + 5.0f, v[2] - 5.0f);
-		//man->colour(ColourValue::White);
 	}
 
 	for (auto t : mesh.tvi) {
 		man->triangle(t[0], t[1], t[2]);
+		// Normals calculation
+		Eigen::Vector3f dir0 = mesh.vertices[t[2]] - mesh.vertices[t[0]];
+		Eigen::Vector3f dir1 = mesh.vertices[t[0]] - mesh.vertices[t[1]];
+		Eigen::Vector3f n = dir0.cross(dir1).normalized();
+		man->normal(n[0], n[1], n[2]);
 	}
 	man->end();
 
+	//man->convertToMesh("profileEntity");
+
+	//Entity* profileEntity = mScene->createEntity("profileEntity");
+
 	SceneNode* profileNode = mScene->getRootSceneNode()->createChildSceneNode();
+	//createHLMSMaterial(profileEntity->getSubEntity(0), 0);
+	//profileNode->attachObject(profileEntity);
 	profileNode->attachObject(man);
 
 	// Adding the rest of the head
-	Ogre::Entity* headEntity = mScene->createEntity("head.mesh");
+	Entity* headEntity = mScene->createEntity("head.mesh");
 
-	Ogre::SceneNode* headNode = mScene->getRootSceneNode()->createChildSceneNode();
-	headEntity->setMaterialName("BaseWhiteNoLighting");
+	SceneNode* headNode = mScene->getRootSceneNode()->createChildSceneNode();
+	createHLMSMaterial(headEntity->getSubEntity(0), 1);
 	headNode->attachObject(headEntity);
-
 }
 
-void OgreApp::update_mesh(eos::core::Mesh mesh) {
+void OgreApp::updateMesh(eos::core::Mesh mesh) {
 	ManualObject* man = mScene->getManualObject("profile");
 
 	man->beginUpdate(0);
@@ -107,20 +98,50 @@ void OgreApp::update_mesh(eos::core::Mesh mesh) {
 	}
 }
 
-void OgreApp::add_or_update_mesh(eos::core::Mesh mesh) {
+void OgreApp::addOrUpdateMesh(eos::core::Mesh mesh) {
 	if (!mScene->hasManualObject("profile")) {
-		add_mesh(mesh);
+		addMesh(mesh);
 	}
 	else {
-		update_mesh(mesh);
+		updateMesh(mesh);
 	}
+}
+
+void OgreApp::createHLMSMaterial(SubEntity* subEntity, unsigned int id)
+{
+	PbsMaterial* pbsMaterial = new PbsMaterial();
+
+	MaterialPtr materialPtr = subEntity->getMaterial();
+	String newMaterialName = "Pbs_" + subEntity->getMaterialName() + "_" + StringConverter::toString(id);
+
+	// Some test properties set
+	pbsMaterial->setAlbedo(ColourValue::Green);
+
+	pbsMaterial->setRoughness(0.6f);
+	pbsMaterial->setLightRoughnessOffset(0.2);
+
+	float f0 = 0.9f;
+	pbsMaterial->setF0(ColourValue(f0, f0, f0));
+
+	MaterialPtr newMaterialPtr = subEntity->getMaterial()->clone(newMaterialName);
+	newMaterialPtr->removeAllTechniques();
+	Pass* pass = newMaterialPtr->createTechnique()->createPass();
+	pass->setName("pbs");
+
+	subEntity->setMaterial(newMaterialPtr);
+
+	hlmsManager->bind(subEntity, pbsMaterial, "pbs");
 }
 
 bool OgreApp::keyPressed(const OgreBites::KeyboardEvent& evt)
 {
-	if (evt.keysym.sym == OgreBites::SDLK_ESCAPE)
+	if (evt.keysym.sym == SDLK_ESCAPE)
 	{
 		getRoot()->queueEndRendering();
+	}
+	if (evt.keysym.sym == SDLK_LEFT)
+	{
+		std::cout << "Left arrow pressed" << std::endl;
 	}
 	return true;
 }
