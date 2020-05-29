@@ -15,7 +15,7 @@ public:
 	dlib::image_window win;
 
 	FacialDetector();
-	dlib::full_object_detection detect(std::pair<cv::Mat, eos::cpp17::optional<rs2::depth_frame>> data);
+	eos::cpp17::optional<dlib::full_object_detection> detect(std::pair<cv::Mat, eos::cpp17::optional<rs2::depth_frame>> data);
 
 private:
 	dlib::frontal_face_detector detector;

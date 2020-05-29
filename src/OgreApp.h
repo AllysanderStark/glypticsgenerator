@@ -10,12 +10,19 @@
 #include <eos/core/Mesh.hpp>
 #include <Eigen/Geometry>
 
+#include "FrameCapturer.h"
+#include "FacialDetector.h"
+#include "FacialMorpher.h"
+
 class OgreApp : public OgreBites::ApplicationContext, public OgreBites::InputListener
 {
 public:
-	OgreApp();
-
 	Ogre::SceneManager* mScene;
+	FrameCapturer frameCap;
+	FacialDetector detector;
+	FacialMorpher morpher;
+
+	OgreApp() : OgreBites::ApplicationContext("Glyptics Portrait Generator Ogre"), morpher(SFM) {}
 
 	void setup(void);
 	void addMesh(eos::core::Mesh mesh);
@@ -25,7 +32,10 @@ public:
 private:
 	void createHLMSMaterial(Ogre::SubEntity* subEntity, unsigned int id);
 	bool keyPressed(const OgreBites::KeyboardEvent& evt);
+	bool frameRenderingQueued(const Ogre::FrameEvent& evt);
 
 	Ogre::Root *mRoot;
 	Ogre::HlmsManager *hlmsManager;
+	Ogre::Camera* mainCamera;
+	int cameraRotation;
 };

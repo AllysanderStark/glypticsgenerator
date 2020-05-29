@@ -16,10 +16,6 @@
 using namespace Ogre;
 using namespace OgreBites;
 
-OgreApp::OgreApp() : ApplicationContext("Glyptics Portrait Generator Ogre")
-{
-}
-
 void OgreApp::setup(void)
 {
 	ApplicationContext::setup();
@@ -29,18 +25,25 @@ void OgreApp::setup(void)
 	mRoot = getRoot();
 	mRoot->restoreConfig();
 
+	mRoot->addFrameListener(this);
+
 	mScene = mRoot->createSceneManager();
+
+	// Start the video stream
+	frameCap.startVideoStream();
 
 	SceneNode* camNode = mScene->getRootSceneNode()->createChildSceneNode();
 	camNode->setPosition(700, 0, -75.0);
 	camNode->lookAt(Vector3(0, 0, -75.0), Node::TS_PARENT);
 
-	Camera* mCamera = mScene->createCamera("MainCam");
-	mCamera->setAutoAspectRatio(true);
-	mCamera->setNearClipDistance(0.1);
-	camNode->attachObject(mCamera);
+	mainCamera = mScene->createCamera("MainCam");
+	mainCamera->setAutoAspectRatio(true);
+	mainCamera->setNearClipDistance(0.1);
+	camNode->attachObject(mainCamera);
 
-	getRenderWindow()->addViewport(mCamera);
+	cameraRotation = 0;
+
+	getRenderWindow()->addViewport(mainCamera);
 
 	mScene->setAmbientLight(ColourValue(.5, .5, .5));
 
@@ -54,6 +57,7 @@ void OgreApp::setup(void)
 void OgreApp::addMesh(eos::core::Mesh mesh) {
 	ManualObject* man = mScene->createManualObject("profile");
 
+	man->setDynamic(true);
 	man->estimateVertexCount(mesh.vertices.size());
 	man->begin("BaseWhite");
 
@@ -64,10 +68,12 @@ void OgreApp::addMesh(eos::core::Mesh mesh) {
 	for (auto t : mesh.tvi) {
 		man->triangle(t[0], t[1], t[2]);
 		// Normals calculation
+		/*
 		Eigen::Vector3f dir0 = mesh.vertices[t[2]] - mesh.vertices[t[0]];
 		Eigen::Vector3f dir1 = mesh.vertices[t[0]] - mesh.vertices[t[1]];
 		Eigen::Vector3f n = dir0.cross(dir1).normalized();
 		man->normal(n[0], n[1], n[2]);
+		*/
 	}
 	man->end();
 
@@ -79,6 +85,7 @@ void OgreApp::addMesh(eos::core::Mesh mesh) {
 	//createHLMSMaterial(profileEntity->getSubEntity(0), 0);
 	//profileNode->attachObject(profileEntity);
 	profileNode->attachObject(man);
+	profileNode->scale(0.1, 1, 1);
 
 	// Adding the rest of the head
 	Entity* headEntity = mScene->createEntity("head.mesh");
@@ -86,6 +93,7 @@ void OgreApp::addMesh(eos::core::Mesh mesh) {
 	SceneNode* headNode = mScene->getRootSceneNode()->createChildSceneNode();
 	createHLMSMaterial(headEntity->getSubEntity(0), 1);
 	headNode->attachObject(headEntity);
+	headNode->scale(0.1, 1, 1);
 }
 
 void OgreApp::updateMesh(eos::core::Mesh mesh) {
@@ -94,8 +102,14 @@ void OgreApp::updateMesh(eos::core::Mesh mesh) {
 	man->beginUpdate(0);
 
 	for (auto v : mesh.vertices) {
-		man->position(v[0], v[1], v[2]);
+		man->position(v[0], v[1] + 5.0f, v[2] - 5.0f);
 	}
+	
+	for (auto t : mesh.tvi) {
+		man->triangle(t[0], t[1], t[2]);
+	}
+
+	man->end();
 }
 
 void OgreApp::addOrUpdateMesh(eos::core::Mesh mesh) {
@@ -139,9 +153,19 @@ bool OgreApp::keyPressed(const OgreBites::KeyboardEvent& evt)
 	{
 		getRoot()->queueEndRendering();
 	}
-	if (evt.keysym.sym == SDLK_LEFT)
+	return true;
+}
+
+bool OgreApp::frameRenderingQueued(const FrameEvent& evt) {
+	eos::core::Mesh mesh;
+
+	auto data = frameCap.capture();
+	auto face = detector.detect(data);
+	if (face.has_value())
 	{
-		std::cout << "Left arrow pressed" << std::endl;
+		mesh = morpher.morph(face.value(), data.first);
+		addOrUpdateMesh(mesh);
 	}
+
 	return true;
 }

@@ -11,13 +11,22 @@ FacialDetector::FacialDetector() {
 	deserialize("res/landmarks.dat") >> predictor;
 }
 
-full_object_detection FacialDetector::detect(std::pair<cv::Mat, eos::cpp17::optional<rs2::depth_frame>> data) {
+eos::cpp17::optional<full_object_detection> FacialDetector::detect(std::pair<cv::Mat, eos::cpp17::optional<rs2::depth_frame>> data) {
 	// Data extraction
 	cv_image<bgr_pixel> cimg(data.first);
 	bool hasDepth = data.second.has_value();
 
+	win.set_image(cimg);
+	
 	// Detection
 	std::vector<dlib::rectangle> faces = detector(cimg);
+
+	// Return nullopt if no faces are detected
+	if (faces.empty()) 
+	{
+		return eos::cpp17::nullopt;
+	}
+
 	std::vector<full_object_detection> shapes;
 	for (unsigned long i = 0; i < faces.size(); ++i)
 		shapes.push_back(predictor(cimg, faces[i]));
@@ -50,8 +59,6 @@ full_object_detection FacialDetector::detect(std::pair<cv::Mat, eos::cpp17::opti
 			win.add_overlay(image_window::overlay_rect(rect, rgb_pixel(255, 0, 0), z_label));
 		}
 	}
-
-	win.set_image(cimg);
-
+	
 	return face;
 }
