@@ -57,7 +57,13 @@ core::Mesh FacialMorpher::morph(dlib::full_object_detection face, cv::Mat image)
 
 		const Eigen::Matrix<float, 3, 4> affine_from_ortho = eos::fitting::get_3x4_affine_camera_matrix(rendering_params, image.cols, image.rows);
 
-		const std::vector<float> fitted_coeffs = eos::fitting::fit_shape_to_landmarks_linear(morphableModel.get_shape_model(), affine_from_ortho, image_points, vertex_indices, Eigen::VectorXf(), 1.0f);
+		const std::vector<float> fitted_coeffs = eos::fitting::fit_shape_to_landmarks_linear(
+			morphableModel.get_shape_model(),
+			affine_from_ortho, 
+			image_points, 
+			vertex_indices, 
+			Eigen::VectorXf(), 
+			2.0f);
 
 		mesh = morphableModel.draw_sample(fitted_coeffs, std::vector<float>());
 	}
@@ -87,9 +93,11 @@ core::Mesh FacialMorpher::morph(dlib::full_object_detection face, cv::Mat image)
 
 		std::tie(mesh, rendering_params) = fitting::fit_shape_and_pose(
 			morphable_model_with_expressions, landmarks, landmarkMapper, image.cols, image.rows, edgeTopology,
-			ibugContour, modelContour, 5, cpp17::nullopt, 1.0f);
+			ibugContour, modelContour, 5, cpp17::nullopt, 2.0f);
 	}
 
+	// Uncomment the code below to receive intermediate outputs (mesh + fitted image)
+	/*
 	cv::Mat outimg = image.clone();
 
 	// Draw the fitted mesh as wireframe, and save the image:
@@ -99,6 +107,7 @@ core::Mesh FacialMorpher::morph(dlib::full_object_detection face, cv::Mat image)
 
 	// Save the mesh
 	core::write_obj(mesh, "morph.obj");
+	*/
 
 	return mesh;
 }
