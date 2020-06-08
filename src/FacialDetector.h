@@ -16,8 +16,10 @@ public:
 
 	FacialDetector();
 	eos::cpp17::optional<dlib::full_object_detection> detect(std::pair<cv::Mat, eos::cpp17::optional<rs2::depth_frame>> data);
+	void toggleWindow();
 
 private:
+	bool winShown;
 	dlib::frontal_face_detector detector;
 	dlib::shape_predictor predictor;
 };

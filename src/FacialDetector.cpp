@@ -6,7 +6,10 @@ using namespace cv;
 
 FacialDetector::FacialDetector() {
 	win.set_title("Glyptics Portrait Generator: dlib");
-	win.show();
+	
+	winShown = false;
+	win.hide();
+
 	detector = get_frontal_face_detector();
 	deserialize("res/landmarks.dat") >> predictor;
 }
@@ -61,4 +64,15 @@ eos::cpp17::optional<full_object_detection> FacialDetector::detect(std::pair<cv:
 	}
 	
 	return face;
+}
+
+void FacialDetector::toggleWindow() {
+	if (winShown) {
+		win.hide();
+		winShown = false;
+	}
+	else {
+		win.show();
+		winShown = true;
+	}
 }
