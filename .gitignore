@@ -352,8 +352,15 @@ MigrationBackup/
 # Created PLY and VTK model files
 *.ply
 *.vtk
+
+# Binary/json files for mesh creation (can be found online)
+*.dat
+*.bin
+*.json
+
+# Misc resources
 *.off
-res/
+*.zip
 morph.png
 textured_morph.isomap.png
 textured_morph.mtl

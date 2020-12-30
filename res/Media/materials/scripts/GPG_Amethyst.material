@@ -1,0 +1,75 @@
+material GPG_Amethyst 
+{
+    receive_shadows on 
+
+    technique
+    {
+        pass GPG_Amethyst
+        {
+            ambient 0.01 0.01 0.01 1.0
+            diffuse 0.377 0.27 0.384 0.8
+            specular 1.0 1.0 1.0 1.0 76.8
+            emissive 0.377 0.27 0.384 0.1
+
+            alpha_to_coverage off
+            colour_write on
+            cull_hardware clockwise
+            depth_check on
+            depth_func less_equal
+            depth_write on
+            illumination_stage 
+            light_clip_planes off
+            light_scissor off
+            lighting on
+            normalise_normals on
+            polygon_mode solid
+            scene_blend alpha_blend
+            scene_blend_op add
+            shading phong
+            transparent_sorting on
+            texture_unit
+            {
+			texture chrome.jpg
+			env_map spherical
+         		alpha_op_ex source1 src_manual src_current 0.5
+            }
+        }
+    }
+}
+
+material GPG_AmethystBG
+{
+	receive_shadows on
+
+	technique
+	{
+		pass GPG_AmethystBG
+		{
+			ambient 0.02 0.02 0.02 1.0
+			diffuse 0.377 0.27 0.384 0.6
+			specular 1.0 1.0 1.0 0.8 76.8
+			emissive 0.0 0.0 0.0 1.0
+
+			alpha_to_coverage off
+			colour_write on
+			cull_hardware clockwise
+			depth_check on
+			depth_func less_equal
+			depth_write on
+			illumination_stage
+			light_clip_planes off
+			light_scissor off
+			lighting on
+			normalise_normals on
+			polygon_mode solid
+			scene_blend one zero
+			scene_blend_op add
+			shading phong
+			transparent_sorting on
+			texture_unit
+			{
+				texture frost.png
+			}
+		}
+	}
+}
